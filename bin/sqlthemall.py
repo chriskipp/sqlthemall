@@ -1,40 +1,39 @@
 #!/usr/bin/env python3
 
-# Imports
+import argparse
 import json
 import sys
-import argparse
-from sqlalchemy import create_engine, MetaData, Table, Column, ForeignKey, Integer, String, BLOB, Float
+
+import requests
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import sessionmaker
-import requests
+from sqlalchemy import (
+        create_engine, Column, Float, ForeignKey, Integer,
+        MetaData, String, Table)
 
 
 def sqlthemall(jsonobj, dburl):
     engine = create_engine(dburl)
-    
+
     global metadata
-    
+
     metadata = MetaData()
     metadata.reflect(engine)
-    
-    if not'main' in {t for t in metadata.tables}:
+
+    if not'main' in metadata.tables:
         current_table = Table('main', metadata,
                               Column('_id', Integer, primary_key=True))
     else:
         current_table = metadata.tables['main']
-    
 
     def parse_dict(obj, current_table=current_table):
-    
-        tables = metadata.sorted_tables
-        tablenames = {t for t in tables}
-    
+
         if obj.__class__ == dict:
             for k, v in obj.items():
-                if k in {c.name for c in current_table.columns}:
+                if k in (c.name for c in current_table.columns):
                     if args.verbose and not args.quiet:
-                        print(k + 'already exists in table ' + current_table.name)
+                        print(k + 'already exists in table '
+                                + current_table.name)
                     continue
                 else:
                     if v.__class__ == str:
@@ -54,34 +53,43 @@ def sqlthemall(jsonobj, dburl):
                             if not args.quiet:
                                 print('createing table ' + k)
                             t = Table(k, metadata,
-                                      Column('_id', Integer, primary_key=True),
-                                      Column(current_table.name + '_id', ForeignKey(current_table.name + '._id'))
-                                     )
+                                    Column('_id', Integer, primary_key=True),
+                                    Column(current_table.name + '_id',
+                                        ForeignKey(current_table.name +
+                                            '._id')))
                         else:
                             t = metadata.tables[k]
                         parse_dict(obj=v, current_table=t)
-                        
+
                     elif v.__class__ == list:
                         if v:
-                            v = [{'value': item} if item.__class__ !=
-                                 dict else item for item in v]
+                            v = [{'value': item}
+                                    if item
+                                    else item.__class__ == dict
+                                    for item in v]
                             for item in v:
                                 if k not in metadata.tables:
-                                    bridge = Table('bridge_' + current_table.name + '_' + k, metadata,
-                                                   Column(current_table.name + '_id',
-                                                         ForeignKey(current_table.name + '._id')
-                                                         ),
-                                                   Column(k + '_id',
-                                                         ForeignKey(k + '._id')
-                                                         )
-                                                  )
+                                    bridge = Table(
+                                            'bridge_' +
+                                            current_table.name +
+                                            '_' + k, metadata,
+                                            Column(
+                                                current_table.name +
+                                                '_id',
+                                                ForeignKey(
+                                                    current_table.name +
+                                                    '._id')),
+                                            Column(k + '_id',
+                                                ForeignKey(k + '._id')))
                                     t = Table(k, metadata,
-                                              Column('_id', Integer, primary_key=True)
-                                             )
+                                            Column(
+                                                '_id',
+                                                Integer,
+                                                primary_key=True))
                                 else:
                                     t = metadata.tables[k]
                                 parse_dict(obj=item, current_table=t)
-    
+
     parse_dict(jsonobj)
 
     Base = automap_base(metadata=metadata)
@@ -94,24 +102,27 @@ def sqlthemall(jsonobj, dburl):
 def importDataToSchema(jsonobj, dburl):
     engine = create_engine(dburl)
     engine.connect()
-    
+
     Base = automap_base()
     Base.prepare(engine, reflect=True)
     classes = Base.classes
-    
+
     Session = sessionmaker(engine, autocommit=args.autocommit)
     global session
     session = Session()
-    
+
     def make_relational_obj(name, objc):
         pre_ormobjc = dict()
         collectiondict = dict()
         for k, v in objc.items():
-            if v.__class__ == dict().__class__:
+            if v.__class__ == dict:
                 collectiondict[k] = [make_relational_obj(k, v)]
-            elif v.__class__ == list().__class__:
+            elif v.__class__ == list:
                 if v:
-                    v = [i if i.__class__ == dict().__class__ else {'value':i} for i in v]
+                    v = [i
+                            if i.__class__ == dict.__class__
+                            else {'value':i}
+                            for i in v ]
                     collectiondict[k] = [make_relational_obj(k, i) for i in v]
             elif v == None:
                 continue
@@ -158,13 +169,29 @@ def importDataToSchema(jsonobj, dburl):
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('-d', '--databaseurl', nargs=1, dest='databaseurl', required=True, help='database url to use')
-    parser.add_argument('-u', '--url', nargs=1, dest='url', help='url to read JSON from')
-    parser.add_argument('-f', '--file', nargs=1, dest='file', help='file to read JSON from (default: stdin)')
-    parser.add_argument('-n', '--noimport', action="store_true", help='only creates database schema, skips import')
-    parser.add_argument('-a', '--autocommit', action="store_true", help='opens database in autocommit mode')
-    parser.add_argument('-v', '--verbose', action="store_true", help='print verbose output')
-    parser.add_argument('-q', '--quiet', action="store_true", help="don't print output")
+    parser.add_argument('-d', '--databaseurl',
+            nargs=1,
+            dest='databaseurl',
+            required=True, help='database url to use')
+    parser.add_argument('-u', '--url',
+            nargs=1, dest='url',
+            help='url to read JSON from')
+    parser.add_argument('-f', '--file',
+            nargs=1,
+            dest='file',
+            help='file to read JSON from (default: stdin)')
+    parser.add_argument('-n', '--noimport',
+            action="store_true",
+            help='only creates database schema, skips import')
+    parser.add_argument('-a', '--autocommit',
+            action="store_true",
+            help='opens database in autocommit mode')
+    parser.add_argument('-v', '--verbose',
+            action="store_true",
+            help='print verbose output')
+    parser.add_argument('-q', '--quiet',
+            action="store_true",
+            help="don't print output")
     args = parser.parse_args(sys.argv[1:])
 
     if args.url:
@@ -179,11 +206,10 @@ if __name__ == '__main__':
 
     else:
         obj = json.loads(sys.stdin.read())
-            
-    sqlthemall(jsonobj=obj, dburl=args.databaseurl[0])   
+
+    sqlthemall(jsonobj=obj, dburl=args.databaseurl[0])
     if not args.noimport:
         print('\nImporting Objects')
-        importDataToSchema(jsonobj=obj, dburl=args.databaseurl[0])   
+        importDataToSchema(jsonobj=obj, dburl=args.databaseurl[0])
         print()
-
 
