@@ -140,6 +140,7 @@ def importDataToSchema(jsonobj, dburl):
                 for k, v in pre_ormobjc.items():
                     ormobjc.__setattr__(k, v)
 
+            session.add(ormobjc)
             if collectiondict:
                 for k in collectiondict:
                     setattr(ormobjc, k.lower() + '_collection', collectiondict[k])
@@ -171,9 +172,11 @@ if __name__ == '__main__':
         obj = res.json()
         if obj.__class__ == list:
             obj = {'main_array': obj}
+
     elif args.file:
         with open(args.file[0]) as f:
             obj = json.loads(f.read())
+
     else:
         obj = json.loads(sys.stdin.read())
             
