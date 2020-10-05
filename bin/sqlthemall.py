@@ -203,6 +203,15 @@ if __name__ == '__main__':
     elif args.file:
         with open(args.file[0]) as f:
             obj = json.loads(f.read())
+        if obj.__class__ == list:
+            for subobj in obj:
+                sqlthemall(jsonobj=subobj, dburl=args.databaseurl[0])
+                if not args.noimport:
+                    print('\nImporting Objects')
+                    importDataToSchema(jsonobj=subobj, dburl=args.databaseurl[0])
+                    print()
+            exit(0)
+
 
     else:
         obj = json.loads(sys.stdin.read())
