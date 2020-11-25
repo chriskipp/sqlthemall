@@ -32,22 +32,22 @@ def sqlthemall(jsonobj, dburl):
             for k, v in obj.items():
                 if k in (c.name for c in current_table.columns):
                     if args.verbose and not args.quiet:
-                        print(k + 'already exists in table '
+                        print(k + ' already exists in table '
                                 + current_table.name)
                     continue
                 else:
                     if v.__class__ == str:
                         current_table.append_column(Column(k, String()))
                         if not args.quiet:
-                            print('  adding col ' + k)
+                            print('  adding col ' + k + ' to table ' + current_table.name)
                     elif v.__class__ == int:
                         current_table.append_column(Column(k, Integer()))
                         if not args.quiet:
-                            print('  adding col ' + k)
+                            print('  adding col ' + k + ' to table ' + current_table.name)
                     elif v.__class__ == float:
                         current_table.append_column(Column(k, Float()))
                         if not args.quiet:
-                            print('  adding col ' + k)
+                            print('  adding col ' + k + ' to table ' + current_table.name)
                     elif v.__class__ == dict:
                         if k not in metadata.tables:
                             if not args.quiet:
@@ -64,8 +64,8 @@ def sqlthemall(jsonobj, dburl):
                     elif v.__class__ == list:
                         if v:
                             v = [{'value': item}
-                                    if item
-                                    else item.__class__ == dict
+                                    if item.__class__ != dict
+                                    else item
                                     for item in v]
                             for item in v:
                                 if k not in metadata.tables:
@@ -120,7 +120,7 @@ def importDataToSchema(jsonobj, dburl):
             elif v.__class__ == list:
                 if v:
                     v = [i
-                            if i.__class__ == dict.__class__
+                            if i.__class__ == dict
                             else {'value':i}
                             for i in v ]
                     collectiondict[k] = [make_relational_obj(k, i) for i in v]
@@ -198,7 +198,7 @@ if __name__ == '__main__':
         res = requests.get(args.url[0])
         obj = res.json()
         if obj.__class__ == list:
-            obj = {'main_array': obj}
+            obj = {'main': obj}
 
     elif args.file:
         with open(args.file[0]) as f:
@@ -206,8 +206,9 @@ if __name__ == '__main__':
         if obj.__class__ == list:
             for subobj in obj:
                 sqlthemall(jsonobj=subobj, dburl=args.databaseurl[0])
-                if not args.noimport:
-                    print('\nImporting Objects')
+            if not args.noimport:
+                print('\nImporting Objects')
+                for subobj in obj:
                     importDataToSchema(jsonobj=subobj, dburl=args.databaseurl[0])
                     print()
             exit(0)
