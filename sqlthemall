@@ -70,38 +70,38 @@ if __name__ == "__main__":
             simple=args.simple,
             root_table=args.root_table[0])
 
-    if args.url and not args.line:
-        res = requests.get(args.url[0])
-        obj = res.json()
-    elif args.url and args.line:
-        res = requests.get(args.url[0])
-        objs = [orjson.loads(l) for l in response.text.splitlines()]
-
-    elif args.file and not args.line:
-        with open(args.file[0]) as f:
-            obj = orjson.loads(f.read())
-    elif args.file and args.line:
-        with open(args.file[0]) as f:
-            objs = [orjson.loads(l) for l in f.readlines()]
-
-    elif not args.line:
-        obj = orjson.loads(sys.stdin.read())
-    else:
-        objs = (orjson.loads(l) for l in sys.stdin.readlines())
-
-    if not args.line and obj.__class__ == list:
-        obj = {args.root_table[0]: obj}
-
     if not args.line:
-        importer.create_schema(jsonobj=obj)
-    else:
-        for obj in objs:
-            importer.create_schema(jsonobj=obj)
-            if not args.noimport:
-                (args.quiet or print("\nImporting Objects"))
-                importer.importDataToSchema(jsonobj=obj)
+        if args.url:
+            res = requests.get(args.url[0])
+            obj = res.json()
+        elif args.file:
+            with open(args.file[0]) as f:
+                obj = orjson.loads(f.read())
+        else:
+            obj = orjson.loads(sys.stdin.read())
+            
+        if obj.__class__ == list:
+            obj = {args.root_table[0]: obj}
 
-    if not args.noimport:
-        (args.quiet or print("\nImporting Objects"))
-        importer.importDataToSchema(jsonobj=obj)
+        importer.importJSON(jsonobj=obj)
+        #importer.create_schema(jsonobj=obj)
+        #if not args.noimport:
+        #    (args.quiet or print("\nImporting Objects"))
+        #    importer.importDataToSchema(jsonobj=obj)
+
+    elif args.line:
+        if args.url:
+            res = requests.get(args.url[0])
+            objs = [orjson.loads(l) for l in response.text.splitlines()]
+        elif args.file:
+            with open(args.file[0]) as f:
+                objs = [orjson.loads(l) for l in f.readlines()]
+        else:
+            objs = (orjson.loads(l) for l in sys.stdin.readlines())
+
+        importer.importMultiJSON(jsonobjs=objs)
+            #importer.create_schema(jsonobj=obj)
+            #if not args.noimport:
+            #    (args.quiet or print("\nImporting Objects"))
+            #    importer.importDataToSchema(jsonobj={args.root_table[0]: [obj]})
 

@@ -23,6 +23,7 @@ class SQLThemAll:
     simple = False
     autocommit = False
     metadata = MetaData()
+    connection = False
 
     def __init__(
         self,
@@ -181,11 +182,14 @@ class SQLThemAll:
         Base = automap_base(metadata=self.metadata)
         Base.prepare(self.engine)
 
-        con = self.engine.connect()
-        Base.metadata.create_all(bind=con)
+        if not self.connection or self.connection.closed:
+            self.connection = self.engine.connect()
+            Base.metadata.create_all(bind=self.connection)
+            self.connection.close()
+        else:
+            Base.metadata.create_all(bind=self.connection)
 
-    def importDataToSchema(self, jsonobj):
-        self.engine.connect()
+    def insertDataToSchema(self, jsonobj):
 
         Base = automap_base()
         Base.prepare(self.engine, reflect=True)
@@ -242,14 +246,50 @@ class SQLThemAll:
                         setattr(ormobjc, k.lower() + "_collection", collectiondict[k])
             return ormobjc
 
-        o = make_relational_obj(name=self.root_table, objc=jsonobj)
-        for c in self.metadata.tables:
-            if not c.startswith("bridge"):
-                instances = self.session.query(classes[c]).all()
+        if not self.connection or self.connection.closed:
+            self.connection = self.engine.connect()
+            o = make_relational_obj(name=self.root_table, objc=jsonobj)
+        #for c in self.metadata.tables:
+        #    if not c.startswith("bridge"):
+        #        instances = self.session.query(classes[c]).all()
 
-        if not self.quiet:
-            sys.stdout.write("\n")
-        if not self.autocommit:
-            self.session.commit()
+            if not self.quiet:
+                sys.stdout.write("\n")
+            if not self.autocommit:
+                self.session.commit()
 
-        self.session.close()
+            self.session.close()
+
+            self.connection.close()
+
+        else:
+            o = make_relational_obj(name=self.root_table, objc=jsonobj)
+        #for c in self.metadata.tables:
+        #    if not c.startswith("bridge"):
+        #        instances = self.session.query(classes[c]).all()
+
+            if not self.quiet:
+                sys.stdout.write("\n")
+            if not self.autocommit:
+                self.session.commit()
+
+            self.session.close()
+
+    def importJSON(self, jsonobj):
+        if not self.connection or self.connection.closed:
+            self.connection = self.engine.connect()
+
+        self.create_schema(jsonobj)
+        self.insertDataToSchema(jsonobj)
+
+        self.connection.close()
+
+    def importMultiJSON(self, jsonobjs):
+        if not self.connection or self.connection.closed:
+            self.connection = self.engine.connect()
+
+        for jsonobj in jsonobjs:
+            self.create_schema(jsonobj)
+            self.insertDataToSchema(jsonobj)
+
+        self.connection.close()
