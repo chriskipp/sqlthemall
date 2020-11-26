@@ -28,12 +28,12 @@ Since the conversion of JSON data to relational database schemas is usually stil
 
 
 ```
-usage: sqlthemall.py [-h] -d DATABASEURL [-u URL] [-f FILE] [-s] [-n] [-a]
-                     [-v] [-q]
+usage: sqlthemall [-h] -d DBURL [-u URL] [-f FILE] [-s] [-n] [-a] [-v] [-q]
+                  [-t ROOT_TABLE]
 
 optional arguments:
   -h, --help            show this help message and exit
-  -d DATABASEURL, --databaseurl DATABASEURL
+  -d DBURL, --databaseurl DBURL
                         database url to use
   -u URL, --url URL     url to read JSON from
   -f FILE, --file FILE  file to read JSON from (default: stdin)
@@ -42,6 +42,9 @@ optional arguments:
   -a, --autocommit      opens database in autocommit mode
   -v, --verbose         print verbose output
   -q, --quiet           don't print output
+  -t ROOT_TABLE, --root-table ROOT_TABLE
+                        Name of the table to import the outermost subobjects
+                        if JSON object is a array
 ```
 
 After cloning this repository you should be able to run the following command:
@@ -75,10 +78,11 @@ By default the JSON data is automatically imported into the database in a second
 
 Further command line options are:
 
--  ```-a/--autocommit``` opens the database in autocommit mode. Using this option will slow down the import process but has the advantage to import the given JSON data even if the insertion of one or more subobjects into the database fails for some reason.
--  ```-n/--noimport``` only creates the tables of the database schema but skips the import of the provided data into the tables
--  ```-q/--quiet``` will turn off the output of the command completely
--  ```-v/--verbose``` will turn on verbose output that also sends a message for every column that already exists as well as every object imported into the database as a dict.
+-  ```-a/--autocommit``` Opens the database in autocommit mode. Using this option will slow down the import process but has the advantage to import the given JSON data even if the insertion of one or more subobjects into the database fails for some reason.
+-  ```-n/--noimport``` Only creates the tables of the database schema but skips the import of the provided data into the tables
+-  ```-q/--quiet``` Will turn off the output of the command completely
+-  ```-v/--verbose``` Will turn on verbose output that also sends a message for every column that already exists as well as every object imported into the database as a dict.
+-  ```-t/--root-table``` Defines the name of the root table to import the outermost objects in case the provided JSON is a array
 
 ## Usage Hints/Where to go from here?
 

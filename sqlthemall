@@ -1,0 +1,86 @@
+#!/usr/bin/env python3
+
+import argparse
+import sys
+
+import orjson
+
+import lib.sqlthemall as sta
+
+if __name__ == "__main__":
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "-d",
+        "--databaseurl",
+        nargs=1,
+        dest="dburl",
+        required=True,
+        help="database url to use",
+    )
+    parser.add_argument(
+        "-u", "--url", nargs=1, dest="url", help="url to read JSON from"
+    )
+    parser.add_argument(
+        "-f",
+        "--file",
+        nargs=1,
+        dest="file",
+        help="file to read JSON from (default: stdin)",
+    )
+    parser.add_argument(
+        "-s",
+        "--simple",
+        action="store_true",
+        help="creates a simple database schema (no mtm)",
+    )
+    parser.add_argument(
+        "-n",
+        "--noimport",
+        action="store_true",
+        help="only creates database schema, skips import",
+    )
+    parser.add_argument(
+        "-a",
+        "--autocommit",
+        action="store_true",
+        help="opens database in autocommit mode",
+    )
+    parser.add_argument(
+        "-v", "--verbose", action="store_true", help="print verbose output"
+    )
+    parser.add_argument("-q", "--quiet", action="store_true", help="don't print output")
+    parser.add_argument("-t",
+            "--root-table",
+            nargs=1,
+            dest="root_table",
+            help="Name of the table to import the outermost subobjects if JSON object is a array"
+    )
+
+    args = parser.parse_args(sys.argv[1:])
+
+    importer = sta.SQLThemAll(dburl=args.dburl[0],
+            quiet=args.quiet,
+            verbose=args.verbose,
+            autocommit=args.autocommit,
+            simple=args.simple,
+            root_table=args.root_table[0])
+
+    if args.url:
+        res = requests.get(args.url[0])
+        obj = res.json()
+    elif args.file:
+        with open(args.file[0]) as f:
+            obj = orjson.loads(f.read())
+    else:
+        obj = orjson.loads(sys.stdin.read())
+
+    if obj.__class__ == list:
+        obj = {args.root_table[0]: obj}
+
+    importer.create_schema(jsonobj=obj)
+
+    if not args.noimport:
+        (args.quiet or print("\nImporting Objects"))
+        importer.importDataToSchema(jsonobj=obj)
+
