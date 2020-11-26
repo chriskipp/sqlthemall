@@ -5,7 +5,7 @@ import sys
 
 import orjson
 
-import lib.sqlthemall as sta
+import lib.json_importer as sta
 
 if __name__ == "__main__":
 
@@ -16,48 +16,52 @@ if __name__ == "__main__":
         nargs=1,
         dest="dburl",
         required=True,
-        help="database url to use",
+        help="Database url to use",
     )
     parser.add_argument(
-        "-u", "--url", nargs=1, dest="url", help="url to read JSON from"
+        "-u", "--url", nargs=1, dest="url", help="URL to read JSON from"
     )
     parser.add_argument(
         "-f",
         "--file",
         nargs=1,
         dest="file",
-        help="file to read JSON from (default: stdin)",
+        help="File to read JSON from (default: stdin)",
     )
     parser.add_argument(
         "-s",
         "--simple",
         action="store_true",
-        help="creates a simple database schema (no mtm)",
+        help="Creates a simple database schema (no mtm)",
     )
     parser.add_argument(
         "-n",
         "--noimport",
         action="store_true",
-        help="only creates database schema, skips import",
+        help="Only creates database schema, skips import",
     )
     parser.add_argument(
         "-a",
         "--autocommit",
         action="store_true",
-        help="opens database in autocommit mode",
+        help="Opens database in autocommit mode",
     )
     parser.add_argument(
-        "-v", "--verbose", action="store_true", help="print verbose output"
+        "-v", "--verbose", action="store_true", help="Print verbose output"
     )
-    parser.add_argument("-q", "--quiet", action="store_true", help="don't print output")
+    parser.add_argument("-q", "--quiet", action="store_true", help="Don't print output")
     parser.add_argument("-t",
             "--root-table",
             nargs=1,
             dest="root_table",
             help="Name of the table to import the outermost subobjects if JSON object is a array"
     )
+    parser.add_argument("-l", "--line", action="store_true", help="Uses JSONline instead of JSON")
 
     args = parser.parse_args(sys.argv[1:])
+
+    if not args.root_table:
+        args.root_table = ["main"]
 
     importer = sta.SQLThemAll(dburl=args.dburl[0],
             quiet=args.quiet,
@@ -66,19 +70,36 @@ if __name__ == "__main__":
             simple=args.simple,
             root_table=args.root_table[0])
 
-    if args.url:
+    if args.url and not args.line:
         res = requests.get(args.url[0])
         obj = res.json()
-    elif args.file:
+    elif args.url and args.line:
+        res = requests.get(args.url[0])
+        objs = [orjson.loads(l) for l in response.text.splitlines()]
+
+    elif args.file and not args.line:
         with open(args.file[0]) as f:
             obj = orjson.loads(f.read())
-    else:
-        obj = orjson.loads(sys.stdin.read())
+    elif args.file and args.line:
+        with open(args.file[0]) as f:
+            objs = [orjson.loads(l) for l in f.readlines()]
 
-    if obj.__class__ == list:
+    elif not args.line:
+        obj = orjson.loads(sys.stdin.read())
+    else:
+        objs = (orjson.loads(l) for l in sys.stdin.readlines())
+
+    if not args.line and obj.__class__ == list:
         obj = {args.root_table[0]: obj}
 
-    importer.create_schema(jsonobj=obj)
+    if not args.line:
+        importer.create_schema(jsonobj=obj)
+    else:
+        for obj in objs:
+            importer.create_schema(jsonobj=obj)
+            if not args.noimport:
+                (args.quiet or print("\nImporting Objects"))
+                importer.importDataToSchema(jsonobj=obj)
 
     if not args.noimport:
         (args.quiet or print("\nImporting Objects"))
