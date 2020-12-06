@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
 import argparse
-import orjson
 import sys
 
+import orjson
 from sqlalchemy import (
     Column,
     Float,
@@ -256,6 +256,7 @@ class SQLThemAll:
 
         self.session.close()
 
+
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
@@ -299,25 +300,30 @@ if __name__ == "__main__":
         "-v", "--verbose", action="store_true", help="Print verbose output"
     )
     parser.add_argument("-q", "--quiet", action="store_true", help="Don't print output")
-    parser.add_argument("-t",
-            "--root-table",
-            nargs=1,
-            dest="root_table",
-            help="Name of the table to import the outermost subobjects if JSON object is a array"
+    parser.add_argument(
+        "-t",
+        "--root-table",
+        nargs=1,
+        dest="root_table",
+        help="Name of the table to import the outermost subobjects if JSON object is a array",
     )
-    parser.add_argument("-l", "--line", action="store_true", help="Uses JSONline instead of JSON")
+    parser.add_argument(
+        "-l", "--line", action="store_true", help="Uses JSONline instead of JSON"
+    )
 
     args = parser.parse_args(sys.argv[1:])
 
     if not args.root_table:
         args.root_table = ["main"]
 
-    importer = SQLThemAll(dburl=args.dburl[0],
-            quiet=args.quiet,
-            verbose=args.verbose,
-            autocommit=args.autocommit,
-            simple=args.simple,
-            root_table=args.root_table[0])
+    importer = SQLThemAll(
+        dburl=args.dburl[0],
+        quiet=args.quiet,
+        verbose=args.verbose,
+        autocommit=args.autocommit,
+        simple=args.simple,
+        root_table=args.root_table[0],
+    )
 
     if args.url and not args.line:
         res = requests.get(args.url[0])
@@ -353,4 +359,3 @@ if __name__ == "__main__":
     if not args.noimport:
         (args.quiet or print("\nImporting Objects"))
         importer.importDataToSchema(jsonobj=obj)
-

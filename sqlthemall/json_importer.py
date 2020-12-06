@@ -18,11 +18,6 @@ from sqlalchemy.orm import sessionmaker
 
 class SQLThemAll:
 
-    dburl = "sqlite://"
-    output_mode = "quiet"
-    simple = False
-    autocommit = False
-    metadata = MetaData()
     connection = False
 
     def __init__(
@@ -42,6 +37,7 @@ class SQLThemAll:
         self.root_table = str(root_table)
 
         self.engine = create_engine(self.dburl)
+        self.metadata = MetaData(bind=self.engine)
         self.metadata.reflect(self.engine)
 
     def create_many_to_one(self, k, current_table):
@@ -86,9 +82,11 @@ class SQLThemAll:
         )
         return t
 
-    def create_schema(self, jsonobj, root_table=None):
+    def create_schema(self, jsonobj, root_table=None, simple=None):
         if root_table == None:
             root_table = self.root_table
+        if simple == None:
+            simple = self.simple
 
         if not root_table in self.metadata.tables:
             current_table = Table(
@@ -97,9 +95,11 @@ class SQLThemAll:
         else:
             current_table = self.metadata.tables[root_table]
 
-        def parse_dict(obj, current_table=current_table):
+        def parse_dict(obj, current_table=current_table, simple=simple):
 
             if obj.__class__ == dict:
+                if obj.__contains__('_id'):
+                    obj['id'] = obj.pop('_id')
                 for k, v in obj.items():
                     if k in (c.name for c in current_table.columns):
                         (
@@ -145,7 +145,7 @@ class SQLThemAll:
                             )
                         elif v.__class__ == dict:
                             if k not in self.metadata.tables:
-                                if not self.simple:
+                                if not simple:
                                     t = self.create_many_to_one(
                                         k=k, current_table=current_table
                                     )
@@ -165,7 +165,7 @@ class SQLThemAll:
                                 ]
                                 for item in v:
                                     if k not in self.metadata.tables:
-                                        if not self.simple:
+                                        if not simple:
                                             t = self.create_many_to_many(
                                                 k, current_table=current_table
                                             )
@@ -203,6 +203,8 @@ class SQLThemAll:
             collectiondict = dict()
             for k, v in objc.items():
                 if v.__class__ == dict:
+                    if objc.__contains__('_id'):
+                        objc['id'] = obj.pop('_id')
                     collectiondict[k] = [make_relational_obj(k, v)]
                 elif v.__class__ == list:
                     if v:
@@ -249,30 +251,19 @@ class SQLThemAll:
         if not self.connection or self.connection.closed:
             self.connection = self.engine.connect()
             o = make_relational_obj(name=self.root_table, objc=jsonobj)
-        #for c in self.metadata.tables:
-        #    if not c.startswith("bridge"):
-        #        instances = self.session.query(classes[c]).all()
-
             if not self.quiet:
                 sys.stdout.write("\n")
             if not self.autocommit:
                 self.session.commit()
-
             self.session.close()
-
             self.connection.close()
 
         else:
             o = make_relational_obj(name=self.root_table, objc=jsonobj)
-        #for c in self.metadata.tables:
-        #    if not c.startswith("bridge"):
-        #        instances = self.session.query(classes[c]).all()
-
             if not self.quiet:
                 sys.stdout.write("\n")
             if not self.autocommit:
                 self.session.commit()
-
             self.session.close()
 
     def importJSON(self, jsonobj):
@@ -288,8 +279,8 @@ class SQLThemAll:
         if not self.connection or self.connection.closed:
             self.connection = self.engine.connect()
 
-        for jsonobj in jsonobjs:
-            self.create_schema(jsonobj)
-            self.insertDataToSchema(jsonobj)
+        jsonobj = {self.root_table: jsonobjs}
+        self.create_schema(jsonobj)
+        self.insertDataToSchema(jsonobj)
 
         self.connection.close()

@@ -5,7 +5,7 @@ import sys
 
 import orjson
 
-import lib.json_importer as sta
+import json_importer as sta
 
 if __name__ == "__main__":
 
@@ -84,10 +84,6 @@ if __name__ == "__main__":
             obj = {args.root_table[0]: obj}
 
         importer.importJSON(jsonobj=obj)
-        #importer.create_schema(jsonobj=obj)
-        #if not args.noimport:
-        #    (args.quiet or print("\nImporting Objects"))
-        #    importer.importDataToSchema(jsonobj=obj)
 
     elif args.line:
         if args.url:
@@ -100,8 +96,3 @@ if __name__ == "__main__":
             objs = (orjson.loads(l) for l in sys.stdin.readlines())
 
         importer.importMultiJSON(jsonobjs=objs)
-            #importer.create_schema(jsonobj=obj)
-            #if not args.noimport:
-            #    (args.quiet or print("\nImporting Objects"))
-            #    importer.importDataToSchema(jsonobj={args.root_table[0]: [obj]})
-
