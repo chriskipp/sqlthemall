@@ -3,6 +3,7 @@
 import sys
 
 from sqlalchemy import (
+    Boolean,
     Column,
     Float,
     ForeignKey,
@@ -28,17 +29,25 @@ class SQLThemAll:
         simple=False,
         autocommit=False,
         root_table="main",
+        echo=False,
     ):
         self.dburl = dburl
         self.quiet = quiet
         self.verbose = verbose
+        self.echo = echo
+        if self.echo:
+            self.quiet = True
         self.simple = simple
         self.autocommit = autocommit
         self.root_table = str(root_table)
 
-        self.engine = create_engine(self.dburl)
+        self.engine = create_engine(self.dburl, echo=self.echo)
         self.metadata = MetaData(bind=self.engine)
         self.metadata.reflect(self.engine)
+        self.sessionmaker = sessionmaker(self.engine, autocommit=self.autocommit)
+        self.Base = automap_base(metadata=self.metadata)
+        self.Base.prepare(self.engine, reflect=True)
+        self.classes = self.Base.classes
 
     def create_many_to_one(self, k, current_table):
         (self.quiet or print("creating table " + k))
@@ -83,12 +92,17 @@ class SQLThemAll:
         return t
 
     def create_schema(self, jsonobj, root_table=None, simple=None):
+        if not self.connection or self.connection.closed:
+            self.connection = self.engine.connect()
+
+        self.schema_changed = False
         if root_table == None:
             root_table = self.root_table
         if simple == None:
             simple = self.simple
 
         if not root_table in self.metadata.tables:
+            self.schema_changed = True
             current_table = Table(
                 root_table, self.metadata, Column("_id", Integer, primary_key=True)
             )
@@ -98,8 +112,8 @@ class SQLThemAll:
         def parse_dict(obj, current_table=current_table, simple=simple):
 
             if obj.__class__ == dict:
-                if obj.__contains__('_id'):
-                    obj['id'] = obj.pop('_id')
+                if obj.__contains__("_id"):
+                    obj["id"] = obj.pop("_id")
                 for k, v in obj.items():
                     if k in (c.name for c in current_table.columns):
                         (
@@ -111,6 +125,7 @@ class SQLThemAll:
                         continue
                     else:
                         if v.__class__ == str:
+                            self.schema_changed = True
                             current_table.append_column(Column(k, String()))
                             (
                                 self.quiet
@@ -122,6 +137,7 @@ class SQLThemAll:
                                 )
                             )
                         elif v.__class__ == int:
+                            self.schema_changed = True
                             current_table.append_column(Column(k, Integer()))
                             (
                                 self.quiet
@@ -133,7 +149,20 @@ class SQLThemAll:
                                 )
                             )
                         elif v.__class__ == float:
+                            self.schema_changed = True
                             current_table.append_column(Column(k, Float()))
+                            (
+                                self.quiet
+                                or print(
+                                    "  adding col "
+                                    + k
+                                    + " to table "
+                                    + current_table.name
+                                )
+                            )
+                        elif v.__class__ == bool:
+                            self.schema_changed = True
+                            current_table.append_column(Column(k, Boolean()))
                             (
                                 self.quiet
                                 or print(
@@ -145,6 +174,7 @@ class SQLThemAll:
                             )
                         elif v.__class__ == dict:
                             if k not in self.metadata.tables:
+                                self.schema_changed = True
                                 if not simple:
                                     t = self.create_many_to_one(
                                         k=k, current_table=current_table
@@ -159,6 +189,8 @@ class SQLThemAll:
 
                         elif v.__class__ == list:
                             if v:
+                                if not [i for i in v if i != None]:
+                                    continue
                                 v = [
                                     {"value": item} if item.__class__ != dict else item
                                     for item in v
@@ -167,7 +199,7 @@ class SQLThemAll:
                                     if k not in self.metadata.tables:
                                         if not simple:
                                             t = self.create_many_to_many(
-                                                k, current_table=current_table
+                                                k=k, current_table=current_table
                                             )
                                         else:
                                             t = self.create_one_to_many(
@@ -177,37 +209,39 @@ class SQLThemAll:
                                         t = self.metadata.tables[k]
                                     parse_dict(obj=item, current_table=t)
 
+        if jsonobj.__class__ == list:
+            jsonobj = {self.root_table: jsonobj}
         parse_dict(jsonobj)
 
-        Base = automap_base(metadata=self.metadata)
-        Base.prepare(self.engine)
-
-        if not self.connection or self.connection.closed:
-            self.connection = self.engine.connect()
-            Base.metadata.create_all(bind=self.connection)
-            self.connection.close()
-        else:
-            Base.metadata.create_all(bind=self.connection)
+        if self.schema_changed:
+            self.Base = automap_base(metadata=self.metadata)
+            self.Base.prepare(self.engine)
+            self.Base.metadata.create_all(bind=self.connection)
+            self.metadata = self.Base.metadata
+            self.classes = self.Base.classes
+        #print(self.metadata.sorted_tables)
 
     def insertDataToSchema(self, jsonobj):
 
-        Base = automap_base()
-        Base.prepare(self.engine, reflect=True)
-        classes = Base.classes
+        if self.schema_changed:
+            self.Base = automap_base()
+            self.Base.prepare(self.engine, reflect=True)
+            self.classes = self.Base.classes
 
-        Session = sessionmaker(self.engine, autocommit=self.autocommit)
-        self.session = Session()
+        self.session = self.sessionmaker()
 
         def make_relational_obj(name, objc):
             pre_ormobjc = dict()
             collectiondict = dict()
             for k, v in objc.items():
                 if v.__class__ == dict:
-                    if objc.__contains__('_id'):
-                        objc['id'] = obj.pop('_id')
+                    if objc.__contains__("_id"):
+                        objc["id"] = obj.pop("_id")
                     collectiondict[k] = [make_relational_obj(k, v)]
                 elif v.__class__ == list:
                     if v:
+                        if not [i for i in v if i != None]:
+                            continue
                         v = [i if i.__class__ == dict else {"value": i} for i in v]
                         collectiondict[k] = [make_relational_obj(k, i) for i in v]
                 elif v == None:
@@ -223,7 +257,9 @@ class SQLThemAll:
             if not self.simple:
                 try:
                     in_session = (
-                        self.session.query(classes[name]).filter_by(**pre_ormobjc).all()
+                        self.session.query(self.classes[name])
+                        .filter_by(**pre_ormobjc)
+                        .all()
                     )
                 except:
                     in_session = False
@@ -236,9 +272,9 @@ class SQLThemAll:
                         setattr(ormobjc, k.lower() + "_collection", collectiondict[k])
             else:
                 try:
-                    ormobjc = classes[name](**pre_ormobjc)
+                    ormobjc = self.classes[name](**pre_ormobjc)
                 except:
-                    ormobjc = classes[name]()
+                    ormobjc = self.classes[name]()
                     for k, v in pre_ormobjc.items():
                         ormobjc.__setattr__(k, v)
 
@@ -248,23 +284,14 @@ class SQLThemAll:
                         setattr(ormobjc, k.lower() + "_collection", collectiondict[k])
             return ormobjc
 
-        if not self.connection or self.connection.closed:
-            self.connection = self.engine.connect()
-            o = make_relational_obj(name=self.root_table, objc=jsonobj)
-            if not self.quiet:
-                sys.stdout.write("\n")
-            if not self.autocommit:
-                self.session.commit()
-            self.session.close()
-            self.connection.close()
+        if jsonobj.__class__ == list:
+            jsonobj = {self.root_table: jsonobj}
 
-        else:
-            o = make_relational_obj(name=self.root_table, objc=jsonobj)
-            if not self.quiet:
-                sys.stdout.write("\n")
-            if not self.autocommit:
-                self.session.commit()
-            self.session.close()
+        o = make_relational_obj(name=self.root_table, objc=jsonobj)
+        if not self.quiet:
+            sys.stdout.write("\n")
+        if not self.autocommit:
+            self.session.commit()
 
     def importJSON(self, jsonobj):
         if not self.connection or self.connection.closed:

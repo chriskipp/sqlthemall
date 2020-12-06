@@ -1,71 +1,65 @@
 #!/usr/bin/env python3
 
 import pytest
+import orjson
+from pathlib import Path
+from sqlalchemy import MetaData, create_engine
 
 from sqlthemall.json_importer import SQLThemAll
-from sqlalchemy import create_engine, MetaData
+from utils import *
 
-@pytest.mark.parametrize("dburl", [None, 'sqlite://', 'sqlite:///test.sqlite'])
-def test_importer_engine(dburl):
-    if dburl == None:
-        importer = SQLThemAll()
-        dburl = 'sqlite://'
-    else:
-        importer = SQLThemAll(dburl=dburl)
-    assert importer.engine.url == create_engine(dburl).url
+def readfile(inputfile):
+    with open(inputfile) as f:
+        return f.read().strip()
 
-@pytest.mark.parametrize("root_table", [None, "main", "test", "table", 0, 1, 0.1, True, False])
-def test_importer_root_table(root_table):
-    if root_table == None:
-        importer = SQLThemAll()
-        root_table = 'main'
-    else:
-        importer = SQLThemAll(root_table=root_table)
-    assert importer.root_table == str(root_table)
+paths = [p.as_posix()[14:-5] for p in Path('data/testdata/').glob('*.json')]
 
-@pytest.mark.parametrize("quiet", [None, True, False])
-def test_importer_quiet(quiet):
-    if quiet == None:
-        importer = SQLThemAll()
-        quiet = True
-    else:
-        importer = SQLThemAll(quiet=quiet)
-    assert importer.quiet == quiet
-
-@pytest.mark.parametrize("verbose", [None, True, False])
-def test_importer_verbose(verbose):
-    if verbose == None:
-        importer = SQLThemAll()
-        verbose = False
-    else:
-        importer = SQLThemAll(verbose=verbose)
-    assert importer.verbose == verbose
-
-@pytest.mark.parametrize("simple", [None, True, False])
-def test_importer_simple(simple):
-    if simple == None:
-        importer = SQLThemAll()
-        simple = False
-    else:
-        importer = SQLThemAll(simple=simple)
-    assert importer.simple == simple
-
-@pytest.mark.parametrize("autocommit", [None, True, False])
-def test_importer_autocommit(autocommit):
-    if autocommit == None:
-        importer = SQLThemAll()
-        autocommit = False
-    else:
-        importer = SQLThemAll(autocommit=autocommit)
-    assert importer.autocommit == autocommit
-
-def test_importer_initial_connection():
+@pytest.mark.parametrize("path", paths)
+def test_schema_generation(path):
+    jsonobj = orjson.loads(readfile('data/testdata/' + path + '.json'))
+    schema = readfile('data/testvalidate/' + path + '.schema')
     importer = SQLThemAll()
-    assert importer.connection == False
+    importer.create_schema(jsonobj)
+    assert str(importer.metadata.sorted_tables) == schema
 
-def test_importer_metadata():
-    importer = SQLThemAll()
-    engine = importer.engine
-    metadata = MetaData(bind=engine)
-    metadata.reflect()
-    assert importer.metadata == metadata
+@pytest.mark.parametrize("path", paths)
+def test_schema_generation_simple(path):
+    jsonobj = orjson.loads(readfile('data/testdata/' + path + '.json'))
+    schema = readfile('data/testvalidate/' + path + '.simple_schema')
+    importer = SQLThemAll(simple=True)
+    importer.create_schema(jsonobj)
+    assert str(importer.metadata.sorted_tables) == schema
+
+objects = [orjson.loads(readfile('data/testdata/' + p + '.json')) for p in paths if p.startswith('object')]
+arrays = [orjson.loads(readfile('data/testdata/' + p + '.json')) for p in paths if p.startswith('array')]
+root_tables = ['main', 'name', 'test1', 1, True, False, None]
+
+@pytest.mark.parametrize("obj", objects)
+@pytest.mark.parametrize("simple", [True, False])
+@pytest.mark.parametrize("root_table", root_tables)
+def test_importJSON(obj, simple, root_table):
+    tablename = lambda c: c.__dict__['__table__'].__dict__['name']
+    importer = SQLThemAll(simple=simple, root_table=root_table)
+    importer.importJSON(obj)
+    root_class = [c for c in importer.classes if tablename(c) == importer.root_table][0]
+    session = importer.sessionmaker()
+    dbobj = session.query(root_class).one()
+    for a in [i for i in dbobj.__dir__() if i.endswith('_collection')]:
+        dbobj.__getattribute__(a)
+    assert compareObj(dbobj2obj(dbobj), obj)
+
+@pytest.mark.parametrize("array", arrays)
+@pytest.mark.parametrize("simple", [True, False])
+@pytest.mark.parametrize("root_table", root_tables)
+def test_importMultiJSON(array, simple, root_table):
+    tablename = lambda c: c.__dict__['__table__'].__dict__['name']
+    importer = SQLThemAll(simple=simple, root_table=root_table)
+    importer.importMultiJSON(array)
+    root_class = [c for c in importer.classes if tablename(c) == importer.root_table][0]
+    session = importer.sessionmaker()
+    dbobjs = session.query(root_class).all()
+    for dbobj, obj in zip(dbobjs, array):
+        for a in [i for i in dbobj.__dir__() if i.endswith('_collection')]:
+            dbobj.__getattribute__(a)
+        assert compareObj(dbobj2obj(dbobj), obj)
+

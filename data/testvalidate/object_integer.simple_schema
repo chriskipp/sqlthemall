@@ -1,0 +1,1 @@
+[Table('main', MetaData(bind=Engine(sqlite://)), Column('_id', Integer(), table=<main>, primary_key=True, nullable=False), Column('a', Integer(), table=<main>), Column('b', Integer(), table=<main>), Column('c', Integer(), table=<main>), Column('d', Integer(), table=<main>), schema=None)]

@@ -14,7 +14,10 @@ black:
 	black --safe --exclude '__pycache__' --verbose .
 
 test:
-	pytest -c config/test.yaml -vvv --disable-warnings tests
+	pytest -vvv --disable-warnings tests
+
+cov:
+	pytest --cov=sqlthemall --cov-report=html:coverage --disable-warnings -vvv tests
 
 clean:
 	rm -rf `find . -name __pycache__`
