@@ -2,26 +2,26 @@
 
 from sqlalchemy.orm.collections import InstrumentedList
 
+
 def dbobj2obj(o, parent_class=None):
     o2 = dict()
     for k, v in o.__dict__.items():
-        if k not in {'_sa_instance_state', '_id'} and not k.endswith('_id'):
+        if k not in {"_sa_instance_state", "_id"} and not k.endswith("_id"):
             if v.__class__ in {str, int, float, bool}:
                 o2[k.lower()] = v
             elif v.__class__ == InstrumentedList:
                 if v:
                     if v[0].__class__ != parent_class:
-                        o2[k.lower().replace('_collection', '')] = [
-                            dbobj2obj(i, parent_class=o.__class__)
-                            for i in v
+                        o2[k.lower().replace("_collection", "")] = [
+                            dbobj2obj(i, parent_class=o.__class__) for i in v
                         ]
-    o3 = {k:o2[k] for k in sorted(list(o2.keys()))}
-    if 'value' in o3.keys():
-        o3 = o3['value']
+    o3 = {k: o2[k] for k in sorted(list(o2.keys()))}
+    if "value" in o3.keys():
+        o3 = o3["value"]
     return o3
 
-def compareObj(o1, o2):
 
+def compareObj(o1, o2):
     def normalize(o):
         o2 = dict()
         for k in o.keys():
@@ -38,11 +38,11 @@ def compareObj(o1, o2):
             v1, v2 = normalize(v1), normalize(v2)
             if not compareObj(v1, v2):
                 return False
-        elif {v1.__class__ , v2.__class__} == {dict, list}:
+        elif {v1.__class__, v2.__class__} == {dict, list}:
             if v1.__class__ == list and len(v1) == 1:
-               v1 = v1[0]
+                v1 = v1[0]
             elif v2.__class__ == list and len(v2) == 1:
-               v2 = v2[0]
+                v2 = v2[0]
             v1, v2 = normalize(v1), normalize(v2)
             if not compareObj(v1, v2):
                 return False
@@ -54,7 +54,6 @@ def compareObj(o1, o2):
 
     if o1.__class__ == dict and o2.__class__ == dict:
         o1, o2 = normalize(o1), normalize(o2)
-
 
         for k in o1.keys():
             if o1[k].__class__ == list and o2[k].__class__ == list:
@@ -70,4 +69,3 @@ def compareObj(o1, o2):
         if not compareVal(o1, o2):
             return False
     return True
-

@@ -219,7 +219,7 @@ class SQLThemAll:
             self.Base.metadata.create_all(bind=self.connection)
             self.metadata = self.Base.metadata
             self.classes = self.Base.classes
-        #print(self.metadata.sorted_tables)
+        # print(self.metadata.sorted_tables)
 
     def insertDataToSchema(self, jsonobj):
 
