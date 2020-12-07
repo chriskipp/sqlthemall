@@ -3,12 +3,13 @@
 import argparse
 import sys
 
-import json_importer as sta
 import orjson
 import requests
 
-if __name__ == "__main__":
+import sqlthemall.json_importer as sta
 
+
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "-d",
@@ -108,12 +109,12 @@ if __name__ == "__main__":
     elif args.line:
         if args.url:
             res = requests.get(args.url[0])
-            objs = [orjson.loads(l) for l in res.text.splitlines()]
+            objs = [orjson.loads(line) for line in res.text.splitlines()]
         elif args.file:
             with open(args.file[0]) as f:
-                objs = [orjson.loads(l) for l in f.readlines()]
+                objs = [orjson.loads(line) for line in f.readlines()]
         else:
-            objs = [orjson.loads(l) for l in sys.stdin.readlines()]
+            objs = [orjson.loads(line) for line in sys.stdin.readlines()]
 
         if args.sequential:
             for obj in objs:
@@ -122,6 +123,11 @@ if __name__ == "__main__":
                     importer.insertDataToSchema(jsonobj=obj)
 
         else:
-            importer.create_schema(jsonobj={importer.root_table: objs})
+            obj = {importer.root_table: objs}
+            importer.create_schema(jsonobj=obj)
             if not args.noimport:
-                importer.insertDataToSchema(jsonobj={importer.root_table: objs})
+                importer.insertDataToSchema(jsonobj=obj)
+
+
+if __name__ == "__main__":
+    main()

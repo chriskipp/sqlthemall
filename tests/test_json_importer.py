@@ -4,7 +4,7 @@ from pathlib import Path
 
 import orjson
 import pytest
-from utils import *
+from tests.utils import compare_obj, dbobj2obj
 
 from sqlthemall.json_importer import SQLThemAll
 
@@ -48,11 +48,14 @@ arrays = [
 root_tables = ["main", "name", "test1", 1, True, False, None]
 
 
+def tablename(c):
+    return c.__dict__["__table__"].__dict__["name"]
+
+
 @pytest.mark.parametrize("obj", objects)
 @pytest.mark.parametrize("simple", [True, False])
 @pytest.mark.parametrize("root_table", root_tables)
-def test_importJSON(obj, simple, root_table):
-    tablename = lambda c: c.__dict__["__table__"].__dict__["name"]
+def test_import_json(obj, simple, root_table):
     importer = SQLThemAll(simple=simple, root_table=root_table)
     importer.importJSON(obj)
     root_class = [c for c in importer.classes if tablename(c) == importer.root_table][0]
@@ -60,14 +63,14 @@ def test_importJSON(obj, simple, root_table):
     dbobj = session.query(root_class).one()
     for a in [i for i in dbobj.__dir__() if i.endswith("_collection")]:
         dbobj.__getattribute__(a)
-    assert compareObj(dbobj2obj(dbobj), obj)
+    assert compare_obj(dbobj2obj(dbobj), obj)
 
 
 @pytest.mark.parametrize("array", arrays)
 @pytest.mark.parametrize("simple", [True, False])
 @pytest.mark.parametrize("root_table", root_tables)
-def test_importMultiJSON(array, simple, root_table):
-    tablename = lambda c: c.__dict__["__table__"].__dict__["name"]
+def test_import_multi_json(array, simple, root_table):
+
     importer = SQLThemAll(simple=simple, root_table=root_table)
     importer.importMultiJSON(array)
     root_class = [c for c in importer.classes if tablename(c) == importer.root_table][0]
@@ -76,4 +79,4 @@ def test_importMultiJSON(array, simple, root_table):
     for dbobj, obj in zip(dbobjs, array):
         for a in [i for i in dbobj.__dir__() if i.endswith("_collection")]:
             dbobj.__getattribute__(a)
-        assert compareObj(dbobj2obj(dbobj), obj)
+        assert compare_obj(dbobj2obj(dbobj), obj)

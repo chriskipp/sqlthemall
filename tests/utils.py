@@ -15,28 +15,29 @@ def dbobj2obj(o, parent_class=None):
                         o2[k.lower().replace("_collection", "")] = [
                             dbobj2obj(i, parent_class=o.__class__) for i in v
                         ]
-    o3 = {k: o2[k] for k in sorted(list(o2.keys()))}
+    o3 = {k: o2[k] for k in sorted(o2.keys())}
     if "value" in o3.keys():
-        o3 = o3["value"]
-    return o3
+        return o3["value"]
+    else:
+        return o3
 
 
-def compareObj(o1, o2):
+def compare_obj(o1, o2):
     def normalize(o):
         o2 = dict()
         for k in o.keys():
             o[k.lower()] = o.pop(k)
-        for k in sorted(list(o.keys())):
+        for k in sorted(o.keys()):
             o2[k] = o[k]
         return o2
 
-    def compareVal(v1, v2):
+    def compare_val(v1, v2):
         if v1.__class__ in {str, int, float, bool}:
             if v1 != v2:
                 return False
         elif v1.__class__ == dict and v2.__class__ == dict:
             v1, v2 = normalize(v1), normalize(v2)
-            if not compareObj(v1, v2):
+            if not compare_obj(v1, v2):
                 return False
         elif {v1.__class__, v2.__class__} == {dict, list}:
             if v1.__class__ == list and len(v1) == 1:
@@ -44,11 +45,11 @@ def compareObj(o1, o2):
             elif v2.__class__ == list and len(v2) == 1:
                 v2 = v2[0]
             v1, v2 = normalize(v1), normalize(v2)
-            if not compareObj(v1, v2):
+            if not compare_obj(v1, v2):
                 return False
         elif v1.__class__ == list and v2.__class__ == list:
             for sv1, sv2 in zip(v1, v2):
-                if not compareVal(sv1, sv2):
+                if not compare_val(sv1, sv2):
                     return False
         return True
 
@@ -58,14 +59,14 @@ def compareObj(o1, o2):
         for k in o1.keys():
             if o1[k].__class__ == list and o2[k].__class__ == list:
                 for i in range(len(o1[k])):
-                    if not compareVal(o1[k][i], o2[k][i]):
+                    if not compare_val(o1[k][i], o2[k][i]):
                         return False
             else:
-                if not compareVal(o1[k], o2[k]):
+                if not compare_val(o1[k], o2[k]):
                     return False
         return True
 
     else:
-        if not compareVal(o1, o2):
+        if not compare_val(o1, o2):
             return False
     return True

@@ -50,19 +50,21 @@ class SQLThemAll:
         self.classes = self.Base.classes
 
     def create_many_to_one(self, k, current_table):
-        (self.quiet or print("creating table " + k))
-        t = Table(
+        if not self.quiet:
+            print("creating table " + k)
+        return Table(
             k,
             self.metadata,
             Column("_id", Integer, primary_key=True),
             Column(current_table.name + "_id", ForeignKey(current_table.name + "._id")),
         )
-        return t
 
     def create_many_to_many(self, k, current_table):
-        (self.quiet or print("creating table " + k))
+        if not self.quiet:
+            print("creating table " + k)
         t = Table(k, self.metadata, Column("_id", Integer, primary_key=True))
-        (self.quiet or print("creating bridge " + current_table.name + " - " + k))
+        if not self.quiet:
+            print("creating bridge " + current_table.name + " - " + k)
         bridge = Table(
             "bridge_" + current_table.name + "_" + k,
             self.metadata,
@@ -72,36 +74,36 @@ class SQLThemAll:
         return t
 
     def create_one_to_one(self, k, current_table):
-        (self.quiet or print("creating table " + k))
-        t = Table(
+        if not self.quiet:
+            print("creating table " + k)
+        return Table(
             k,
             self.metadata,
             Column("_id", Integer, primary_key=True),
             Column(current_table.name + "_id", ForeignKey(current_table.name + "._id")),
         )
-        return t
 
     def create_one_to_many(self, k, current_table):
-        (self.quiet or print("creating table " + k))
-        t = Table(
+        if not self.quiet:
+            print("creating table " + k)
+        return Table(
             k,
             self.metadata,
             Column("_id", Integer, primary_key=True),
             Column(current_table.name + "_id", ForeignKey(current_table.name + "._id")),
         )
-        return t
 
     def create_schema(self, jsonobj, root_table=None, simple=None):
         if not self.connection or self.connection.closed:
             self.connection = self.engine.connect()
 
         self.schema_changed = False
-        if root_table == None:
+        if root_table is None:
             root_table = self.root_table
-        if simple == None:
+        if simple is None:
             simple = self.simple
 
-        if not root_table in self.metadata.tables:
+        if root_table not in self.metadata.tables:
             self.schema_changed = True
             current_table = Table(
                 root_table, self.metadata, Column("_id", Integer, primary_key=True)
@@ -116,62 +118,50 @@ class SQLThemAll:
                     obj["id"] = obj.pop("_id")
                 for k, v in obj.items():
                     if k in (c.name for c in current_table.columns):
-                        (
-                            self.verbose
-                            and print(
-                                k + " already exists in table " + current_table.name
-                            )
-                        )
+                        if self.verbose:
+                            print(k + " already exists in table " + current_table.name)
                         continue
                     else:
                         if v.__class__ == str:
                             self.schema_changed = True
                             current_table.append_column(Column(k, String()))
-                            (
-                                self.quiet
-                                or print(
+                            if not self.quiet:
+                                print(
                                     "  adding col "
                                     + k
                                     + " to table "
                                     + current_table.name
                                 )
-                            )
                         elif v.__class__ == int:
                             self.schema_changed = True
                             current_table.append_column(Column(k, Integer()))
-                            (
-                                self.quiet
-                                or print(
+                            if not self.quiet:
+                                print(
                                     "  adding col "
                                     + k
                                     + " to table "
                                     + current_table.name
                                 )
-                            )
                         elif v.__class__ == float:
                             self.schema_changed = True
                             current_table.append_column(Column(k, Float()))
-                            (
-                                self.quiet
-                                or print(
+                            if not self.quiet:
+                                print(
                                     "  adding col "
                                     + k
                                     + " to table "
                                     + current_table.name
                                 )
-                            )
                         elif v.__class__ == bool:
                             self.schema_changed = True
                             current_table.append_column(Column(k, Boolean()))
-                            (
-                                self.quiet
-                                or print(
+                            if not self.quiet:
+                                print(
                                     "  adding col "
                                     + k
                                     + " to table "
                                     + current_table.name
                                 )
-                            )
                         elif v.__class__ == dict:
                             if k not in self.metadata.tables:
                                 self.schema_changed = True
@@ -189,10 +179,10 @@ class SQLThemAll:
 
                         elif v.__class__ == list:
                             if v:
-                                if not [i for i in v if i != None]:
+                                if not [i for i in v if i is not None]:
                                     continue
                                 v = [
-                                    {"value": item} if item.__class__ != dict else item
+                                    item if item.__class__ == dict else {"value": item}
                                     for item in v
                                 ]
                                 for item in v:
@@ -231,20 +221,19 @@ class SQLThemAll:
         self.session = self.sessionmaker()
 
         def make_relational_obj(name, objc):
-            pre_ormobjc = dict()
-            collectiondict = dict()
+            pre_ormobjc, collectiondict = {}, {}
             for k, v in objc.items():
                 if v.__class__ == dict:
                     if objc.__contains__("_id"):
-                        objc["id"] = obj.pop("_id")
+                        objc["id"] = objc.pop("_id")
                     collectiondict[k] = [make_relational_obj(k, v)]
                 elif v.__class__ == list:
                     if v:
-                        if not [i for i in v if i != None]:
+                        if not [i for i in v if i is not None]:
                             continue
                         v = [i if i.__class__ == dict else {"value": i} for i in v]
                         collectiondict[k] = [make_relational_obj(k, i) for i in v]
-                elif v == None:
+                elif v is None:
                     continue
                 else:
                     pre_ormobjc[k] = v
@@ -287,7 +276,7 @@ class SQLThemAll:
         if jsonobj.__class__ == list:
             jsonobj = {self.root_table: jsonobj}
 
-        o = make_relational_obj(name=self.root_table, objc=jsonobj)
+        make_relational_obj(name=self.root_table, objc=jsonobj)
         if not self.quiet:
             sys.stdout.write("\n")
         if not self.autocommit:
