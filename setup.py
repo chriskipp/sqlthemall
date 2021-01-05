@@ -8,7 +8,6 @@ def readme():
 
 setup(
     name="sqlthemall",
-    version="0.1",
     description="Automatic import of JSON data into relational databases",
     long_description=readme(),
     classifiers=[

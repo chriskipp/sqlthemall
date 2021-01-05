@@ -17,8 +17,7 @@ def test_importer_engine(dburl):
 
 
 @pytest.mark.parametrize(
-    "root_table", [None, "main", "test", "table", 0, 1, 0.1, True, False]
-)
+    "root_table", [None, "main", "test", "table", 0, 1, 0.1, True, False])
 def test_importer_root_table(root_table):
     if root_table is None:
         importer = SQLThemAll()
