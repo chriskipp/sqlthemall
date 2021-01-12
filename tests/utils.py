@@ -24,12 +24,12 @@ def dbobj2obj(o, parent_class=None):
 
 def compare_obj(o1, o2):
     def normalize(o):
-        o2 = dict()
+        o2, o3 = dict(), dict()
         for k in o.keys():
-            o[k.lower()] = o.pop(k)
-        for k in sorted(o.keys()):
-            o2[k] = o[k]
-        return o2
+            o2[k.lower()] = o[k]
+        for k in sorted(o2.keys()):
+            o3[k] = o2[k]
+        return o3
 
     def compare_val(v1, v2):
         if v1.__class__ in {str, int, float, bool}:
