@@ -19,11 +19,9 @@ def main():
         required=True,
         help="Database url to use",
     )
-    parser.add_argument("-u",
-                        "--url",
-                        nargs=1,
-                        dest="url",
-                        help="URL to read JSON from")
+    parser.add_argument(
+        "-u", "--url", nargs=1, dest="url", help="URL to read JSON from"
+    )
     parser.add_argument(
         "-f",
         "--file",
@@ -49,14 +47,10 @@ def main():
         action="store_true",
         help="Opens database in autocommit mode",
     )
-    parser.add_argument("-v",
-                        "--verbose",
-                        action="store_true",
-                        help="Print verbose output")
-    parser.add_argument("-q",
-                        "--quiet",
-                        action="store_true",
-                        help="Don't print output")
+    parser.add_argument(
+        "-v", "--verbose", action="store_true", help="Print verbose output"
+    )
+    parser.add_argument("-q", "--quiet", action="store_true", help="Don't print output")
     parser.add_argument(
         "-e",
         "--echo",
@@ -68,13 +62,11 @@ def main():
         "--root-table",
         nargs=1,
         dest="root_table",
-        help=
-        "Name of the table to import the outermost subobjects if JSON object is a array",
+        help="Name of the table to import the outermost subobjects if JSON object is a array",
     )
-    parser.add_argument("-l",
-                        "--line",
-                        action="store_true",
-                        help="Uses JSONline instead of JSON")
+    parser.add_argument(
+        "-l", "--line", action="store_true", help="Uses JSONline instead of JSON"
+    )
     parser.add_argument(
         "-S",
         "--sequential",
@@ -112,8 +104,8 @@ def main():
                 obj = orjson.loads(jsonstr)
             except orjson.JSONDecodeError as e:
                 sys.stderr.write("Can not parse JSON string!\n")
-                sys.stderr.write(str(e) + '\n')
-                sys.stderr.write(str(jsonstr) + '\n')
+                sys.stderr.write(str(e) + "\n")
+                sys.stderr.write(str(jsonstr) + "\n")
                 sys.exit()
         else:
             jsonstr = sys.stdin.read()
@@ -125,8 +117,8 @@ def main():
                 obj = orjson.loads(jsonstr)
             except orjson.JSONDecodeError as e:
                 sys.stderr.write("Can not parse JSON string!\n")
-                sys.stderr.write(str(e) + '\n')
-                sys.stderr.write(str(jsonstr) + '\n')
+                sys.stderr.write(str(e) + "\n")
+                sys.stderr.write(str(jsonstr) + "\n")
                 sys.exit()
 
         if obj.__class__ == list:

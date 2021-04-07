@@ -1,20 +1,11 @@
 #!/usr/bin/env python3
 
+import datetime
 import sys
 
-import datetime
-from sqlalchemy import (
-    Boolean,
-    Column,
-    Date,
-    Float,
-    ForeignKey,
-    Integer,
-    MetaData,
-    String,
-    Table,
-    create_engine,
-)
+import alembic
+from sqlalchemy import (Boolean, Column, Date, Float, ForeignKey, Integer,
+                        MetaData, String, Table, create_engine)
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import sessionmaker
 
@@ -45,9 +36,8 @@ class SQLThemAll:
 
         self.engine = create_engine(self.dburl, echo=self.echo)
         self.metadata = MetaData(bind=self.engine)
-        self.metadata.reflect(self.engine)
-        self.sessionmaker = sessionmaker(self.engine,
-                                         autocommit=self.autocommit)
+        self.metadata.reflect(self.engine, extend_existing=True, autoload_replace=True)
+        self.sessionmaker = sessionmaker(self.engine, autocommit=self.autocommit)
         self.Base = automap_base(metadata=self.metadata)
         self.Base.prepare(self.engine, reflect=True)
         self.classes = self.Base.classes
@@ -59,8 +49,8 @@ class SQLThemAll:
             k,
             self.metadata,
             Column("_id", Integer, primary_key=True),
-            Column(current_table.name + "_id",
-                   ForeignKey(current_table.name + "._id")),
+            Column(current_table.name + "_id", ForeignKey(current_table.name + "._id")),
+            extend_existing=True,
         )
 
     def create_many_to_many(self, k, current_table):
@@ -72,9 +62,9 @@ class SQLThemAll:
         bridge = Table(
             "bridge_" + current_table.name + "_" + k,
             self.metadata,
-            Column(current_table.name + "_id",
-                   ForeignKey(current_table.name + "._id")),
+            Column(current_table.name + "_id", ForeignKey(current_table.name + "._id")),
             Column(k + "_id", ForeignKey(k + "._id")),
+            extend_existing=True,
         )
         return t
 
@@ -85,8 +75,8 @@ class SQLThemAll:
             k,
             self.metadata,
             Column("_id", Integer, primary_key=True),
-            Column(current_table.name + "_id",
-                   ForeignKey(current_table.name + "._id")),
+            Column(current_table.name + "_id", ForeignKey(current_table.name + "._id")),
+            extend_existing=True,
         )
 
     def create_one_to_many(self, k, current_table):
@@ -96,8 +86,8 @@ class SQLThemAll:
             k,
             self.metadata,
             Column("_id", Integer, primary_key=True),
-            Column(current_table.name + "_id",
-                   ForeignKey(current_table.name + "._id")),
+            Column(current_table.name + "_id", ForeignKey(current_table.name + "._id")),
+            extend_existing=True,
         )
 
     def create_schema(self, jsonobj, root_table=None, simple=None):
@@ -112,8 +102,13 @@ class SQLThemAll:
 
         if root_table not in self.metadata.tables:
             self.schema_changed = True
-            current_table = Table(root_table, self.metadata,
-                                  Column("_id", Integer, primary_key=True))
+            current_table = Table(
+                root_table,
+                self.metadata,
+                Column("_id", Integer, primary_key=True),
+                extend_existing=True,
+            )
+            current_table.create(self.engine)
         else:
             current_table = self.metadata.tables[root_table]
 
@@ -125,49 +120,92 @@ class SQLThemAll:
                 for k, v in obj.items():
                     if k in (c.name for c in current_table.columns):
                         if self.verbose:
-                            print(k + " already exists in table " +
-                                  current_table.name)
+                            print(k + " already exists in table " + current_table.name)
                         continue
                     else:
                         if v.__class__ == datetime.date:
                             self.schema_changed = True
                             current_table.append_column(Column(k, Date()))
+                            alembic.ddl.base.AddColumn(
+                                current_table.name,
+                                Column(k, Date()),
+                            ).execute(self.engine)
                             if not self.quiet:
-                                print("  adding col " + k + " to table " +
-                                      current_table.name)
+                                print(
+                                    "  adding col "
+                                    + k
+                                    + " to table "
+                                    + current_table.name
+                                )
                         if v.__class__ == str:
                             self.schema_changed = True
                             current_table.append_column(Column(k, String()))
+                            alembic.ddl.base.AddColumn(
+                                current_table.name,
+                                Column(k, String()),
+                            ).execute(self.engine)
                             if not self.quiet:
-                                print("  adding col " + k + " to table " +
-                                      current_table.name)
+                                print(
+                                    "  adding col "
+                                    + k
+                                    + " to table "
+                                    + current_table.name
+                                )
                         elif v.__class__ == int:
                             self.schema_changed = True
                             current_table.append_column(Column(k, Integer()))
+                            alembic.ddl.base.AddColumn(
+                                current_table.name,
+                                Column(k, Integer()),
+                            ).execute(self.engine)
                             if not self.quiet:
-                                print("  adding col " + k + " to table " +
-                                      current_table.name)
+                                print(
+                                    "  adding col "
+                                    + k
+                                    + " to table "
+                                    + current_table.name
+                                )
                         elif v.__class__ == float:
                             self.schema_changed = True
                             current_table.append_column(Column(k, Float()))
+                            alembic.ddl.base.AddColumn(
+                                current_table.name,
+                                Column(k, Float()),
+                            ).execute(self.engine)
                             if not self.quiet:
-                                print("  adding col " + k + " to table " +
-                                      current_table.name)
+                                print(
+                                    "  adding col "
+                                    + k
+                                    + " to table "
+                                    + current_table.name
+                                )
                         elif v.__class__ == bool:
                             self.schema_changed = True
                             current_table.append_column(Column(k, Boolean()))
+                            alembic.ddl.base.AddColumn(
+                                current_table.name,
+                                Column(k, Boolean()),
+                            ).execute(self.engine)
                             if not self.quiet:
-                                print("  adding col " + k + " to table " +
-                                      current_table.name)
+                                print(
+                                    "  adding col "
+                                    + k
+                                    + " to table "
+                                    + current_table.name
+                                )
                         elif v.__class__ == dict:
                             if k not in self.metadata.tables:
                                 self.schema_changed = True
                                 if not simple:
                                     t = self.create_many_to_one(
-                                        k=k, current_table=current_table)
+                                        k=k, current_table=current_table
+                                    )
+                                    t.create(self.engine)
                                 else:
                                     t = self.create_one_to_one(
-                                        k=k, current_table=current_table)
+                                        k=k, current_table=current_table
+                                    )
+                                    t.create(self.engine)
                             else:
                                 t = self.metadata.tables[k]
                             parse_dict(obj=v, current_table=t)
@@ -177,20 +215,21 @@ class SQLThemAll:
                                 if not [i for i in v if i is not None]:
                                     continue
                                 v = [
-                                    item if item.__class__ == dict else {
-                                        "value": item
-                                    } for item in v
+                                    item if item.__class__ == dict else {"value": item}
+                                    for item in v
                                 ]
                                 for item in v:
                                     if k not in self.metadata.tables:
                                         if not simple:
                                             t = self.create_many_to_many(
-                                                k=k,
-                                                current_table=current_table)
+                                                k=k, current_table=current_table
+                                            )
+                                            t.create(self.engine)
                                         else:
                                             t = self.create_one_to_many(
-                                                k=k,
-                                                current_table=current_table)
+                                                k=k, current_table=current_table
+                                            )
+                                            t.create(self.engine)
                                     else:
                                         t = self.metadata.tables[k]
                                     parse_dict(obj=item, current_table=t)
@@ -201,8 +240,10 @@ class SQLThemAll:
 
         if self.schema_changed:
             self.Base = automap_base(metadata=self.metadata)
-            self.Base.prepare(self.engine, reflect=True)
-            self.Base.metadata.create_all(bind=self.connection)
+            # self.Base.prepare(self.engine, reflect=True)
+            self.Base.prepare(self.engine)
+            # self.Base.metadata.create_all(bind=self.connection, checkfirst=False)
+            self.metadata.create_all(bind=self.connection)
             self.metadata = self.Base.metadata
             self.classes = self.Base.classes
         # print(self.metadata.sorted_tables)
@@ -227,14 +268,8 @@ class SQLThemAll:
                     if v:
                         if not [i for i in v if i is not None]:
                             continue
-                        v = [
-                            i if i.__class__ == dict else {
-                                "value": i
-                            } for i in v
-                        ]
-                        collectiondict[k] = [
-                            make_relational_obj(k, i) for i in v
-                        ]
+                        v = [i if i.__class__ == dict else {"value": i} for i in v]
+                        collectiondict[k] = [make_relational_obj(k, i) for i in v]
                 elif v is None:
                     continue
                 else:
@@ -247,8 +282,11 @@ class SQLThemAll:
                     sys.stdout.flush()
             if not self.simple:
                 try:
-                    in_session = (self.session.query(
-                        self.classes[name]).filter_by(**pre_ormobjc).all())
+                    in_session = (
+                        self.session.query(self.classes[name])
+                        .filter_by(**pre_ormobjc)
+                        .all()
+                    )
                 except BaseException:
                     in_session = False
             else:
@@ -257,8 +295,7 @@ class SQLThemAll:
                 ormobjc = in_session[0]
                 if collectiondict:
                     for k in collectiondict:
-                        setattr(ormobjc,
-                                k.lower() + "_collection", collectiondict[k])
+                        setattr(ormobjc, k.lower() + "_collection", collectiondict[k])
             else:
                 try:
                     ormobjc = self.classes[name](**pre_ormobjc)
@@ -270,8 +307,7 @@ class SQLThemAll:
                 self.session.add(ormobjc)
                 if collectiondict:
                     for k in collectiondict:
-                        setattr(ormobjc,
-                                k.lower() + "_collection", collectiondict[k])
+                        setattr(ormobjc, k.lower() + "_collection", collectiondict[k])
             return ormobjc
 
         if jsonobj.__class__ == list:

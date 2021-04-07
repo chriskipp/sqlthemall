@@ -4,9 +4,9 @@ from pathlib import Path
 
 import orjson
 import pytest
-from tests.utils import compare_obj, dbobj2obj
 
 from sqlthemall.json_importer import SQLThemAll
+from tests.utils import compare_obj, dbobj2obj
 
 
 def readfile(inputfile):
@@ -36,11 +36,13 @@ def test_schema_generation_simple(path):
 
 
 objects = [
-    orjson.loads(readfile("data/testdata/" + p + ".json")) for p in paths
+    orjson.loads(readfile("data/testdata/" + p + ".json"))
+    for p in paths
     if p.startswith("object")
 ]
 arrays = [
-    orjson.loads(readfile("data/testdata/" + p + ".json")) for p in paths
+    orjson.loads(readfile("data/testdata/" + p + ".json"))
+    for p in paths
     if p.startswith("array")
 ]
 root_tables = ["main", "name", "test1", 1, True, False, None]
@@ -56,9 +58,7 @@ def tablename(c):
 def test_import_json(obj, simple, root_table):
     importer = SQLThemAll(simple=simple, root_table=root_table)
     importer.importJSON(obj)
-    root_class = [
-        c for c in importer.classes if tablename(c) == importer.root_table
-    ][0]
+    root_class = [c for c in importer.classes if tablename(c) == importer.root_table][0]
     session = importer.sessionmaker()
     dbobj = session.query(root_class).one()
     for a in [i for i in dbobj.__dir__() if i.endswith("_collection")]:
@@ -73,9 +73,7 @@ def test_import_multi_json(array, simple, root_table):
 
     importer = SQLThemAll(simple=simple, root_table=root_table)
     importer.importMultiJSON(array)
-    root_class = [
-        c for c in importer.classes if tablename(c) == importer.root_table
-    ][0]
+    root_class = [c for c in importer.classes if tablename(c) == importer.root_table][0]
     session = importer.sessionmaker()
     dbobjs = session.query(root_class).all()
     for dbobj, obj in zip(dbobjs, array):
