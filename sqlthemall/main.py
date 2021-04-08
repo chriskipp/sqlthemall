@@ -136,19 +136,29 @@ def main():
             with open(args.file[0]) as f:
                 objs = [orjson.loads(line) for line in f.readlines()]
         else:
-            objs = [orjson.loads(line) for line in sys.stdin.readlines()]
-
-        if args.sequential:
-            for obj in objs:
+            if not args.sequential:
+                objs = [orjson.loads(line) for line in sys.stdin.readlines()]
+                obj = {importer.root_table: objs}
                 importer.create_schema(jsonobj=obj)
                 if not args.noimport:
                     importer.insertDataToSchema(jsonobj=obj)
 
-        else:
-            obj = {importer.root_table: objs}
-            importer.create_schema(jsonobj=obj)
-            if not args.noimport:
-                importer.insertDataToSchema(jsonobj=obj)
+            else:
+                while True:
+                    line = sys.stdin.readline()
+                    if not line:
+                        break
+                    obj = {importer.root_table: orjson.loads(line.strip())}
+                    importer.create_schema(jsonobj=obj)
+                    if not args.noimport:
+                        importer.insertDataToSchema(jsonobj=obj)
+
+        #if args.sequential:
+        #    for obj in objs:
+        #        importer.create_schema(jsonobj=obj)
+        #        if not args.noimport:
+        #            importer.insertDataToSchema(jsonobj=obj)
+
 
 
 if __name__ == "__main__":
