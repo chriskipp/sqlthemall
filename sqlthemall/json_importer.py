@@ -297,17 +297,21 @@ class SQLThemAll:
                     for k in collectiondict:
                         setattr(ormobjc, k.lower() + "_collection", collectiondict[k])
             else:
-                try:
-                    ormobjc = self.classes[name](**pre_ormobjc)
-                except BaseException:
-                    ormobjc = self.classes[name]()
-                    for k, v in pre_ormobjc.items():
-                        ormobjc.__setattr__(k, v)
+                if pre_ormobjc:
+                    try:
+                        ormobjc = self.classes[name](**pre_ormobjc)
+                    except BaseException:
+                        ormobjc = self.classes[name]()
+                        for k, v in pre_ormobjc.items():
+                            ormobjc.__setattr__(k, v)
 
-                self.session.add(ormobjc)
-                if collectiondict:
-                    for k in collectiondict:
-                        setattr(ormobjc, k.lower() + "_collection", collectiondict[k])
+                    self.session.add(ormobjc)
+                    if collectiondict:
+                        for k in collectiondict:
+                            setattr(ormobjc, k.lower() + "_collection", collectiondict[k])
+                else:
+                    ormobjc = None
+
             return ormobjc
 
         if jsonobj.__class__ == list:
