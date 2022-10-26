@@ -4,8 +4,18 @@ import datetime
 import sys
 
 import alembic
-from sqlalchemy import (Boolean, Column, Date, Float, ForeignKey, Integer,
-                        MetaData, String, Table, create_engine)
+from sqlalchemy import (
+    Boolean,
+    Column,
+    Date,
+    Float,
+    ForeignKey,
+    Integer,
+    MetaData,
+    String,
+    Table,
+    create_engine,
+)
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import sessionmaker
 

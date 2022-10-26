@@ -153,12 +153,11 @@ def main():
                     if not args.noimport:
                         importer.insertDataToSchema(jsonobj=obj)
 
-        #if args.sequential:
+        # if args.sequential:
         #    for obj in objs:
         #        importer.create_schema(jsonobj=obj)
         #        if not args.noimport:
         #            importer.insertDataToSchema(jsonobj=obj)
-
 
 
 if __name__ == "__main__":
