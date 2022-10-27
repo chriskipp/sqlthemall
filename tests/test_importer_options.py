@@ -70,7 +70,7 @@ def test_importer_autocommit(autocommit):
 
 def test_importer_initial_connection():
     importer = SQLThemAll()
-    assert importer.connection is False
+    assert importer.connection is None
 
 
 def test_importer_metadata():

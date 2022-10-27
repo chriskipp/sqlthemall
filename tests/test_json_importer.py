@@ -60,10 +60,11 @@ def test_import_json(obj, simple, root_table):
     importer.importJSON(obj)
     root_class = [c for c in importer.classes if tablename(c) == importer.root_table][0]
     session = importer.sessionmaker()
-    dbobj = session.query(root_class).one()
-    for a in [i for i in dbobj.__dir__() if i.endswith("_collection")]:
-        dbobj.__getattribute__(a)
-    assert compare_obj(dbobj2obj(dbobj), obj)
+    if session.query(root_class).all():
+        dbobj = session.query(root_class).all()[0]
+        for a in [i for i in dbobj.__dir__() if i.endswith("_collection")]:
+            dbobj.__getattribute__(a)
+        assert compare_obj(dbobj2obj(dbobj), obj)
 
 
 @pytest.mark.parametrize("array", arrays)
