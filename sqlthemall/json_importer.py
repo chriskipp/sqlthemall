@@ -3,37 +3,30 @@
 import datetime
 import sys
 
+from typing import Optional 
 import alembic
-from sqlalchemy import (
-    Boolean,
-    Column,
-    Date,
-    Float,
-    ForeignKey,
-    Integer,
-    MetaData,
-    String,
-    Table,
-    create_engine,
-)
+from collections.abc import Iterable
+from sqlalchemy import (Boolean, Column, Date, Float, ForeignKey, Integer,
+                        MetaData, String, Table, create_engine)
+from sqlalchemy.engine import Engine
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import sessionmaker
 
 
 class SQLThemAll:
 
-    connection = False
+    connection : Optional[Engine] = None
 
     def __init__(
         self,
-        dburl="sqlite://",
-        quiet=True,
-        verbose=False,
-        simple=False,
-        autocommit=False,
-        root_table="main",
-        echo=False,
-    ):
+        dburl : str = "sqlite://",
+        quiet : bool  = True,
+        verbose : bool = False,
+        simple : bool = False,
+        autocommit : bool = False,
+        root_table = "main",
+        echo : bool = False,
+    ) -> None:
         self.dburl = dburl
         self.quiet = quiet
         self.verbose = verbose
@@ -52,7 +45,7 @@ class SQLThemAll:
         self.Base.prepare(self.engine, reflect=True)
         self.classes = self.Base.classes
 
-    def create_many_to_one(self, k, current_table):
+    def create_many_to_one(self, k : str, current_table : Table) -> Table:
         if not self.quiet:
             print("creating table " + k)
         return Table(
@@ -63,7 +56,7 @@ class SQLThemAll:
             extend_existing=True,
         )
 
-    def create_many_to_many(self, k, current_table):
+    def create_many_to_many(self, k : str, current_table : Table) -> Table:
         if not self.quiet:
             print("creating table " + k)
         t = Table(k, self.metadata, Column("_id", Integer, primary_key=True))
@@ -78,7 +71,7 @@ class SQLThemAll:
         )
         return t
 
-    def create_one_to_one(self, k, current_table):
+    def create_one_to_one(self, k : str, current_table : Table) -> Table:
         if not self.quiet:
             print("creating table " + k)
         return Table(
@@ -89,7 +82,7 @@ class SQLThemAll:
             extend_existing=True,
         )
 
-    def create_one_to_many(self, k, current_table):
+    def create_one_to_many(self, k : str, current_table : Table) -> Table:
         if not self.quiet:
             print("creating table " + k)
         return Table(
@@ -100,15 +93,15 @@ class SQLThemAll:
             extend_existing=True,
         )
 
-    def create_schema(self, jsonobj, root_table=None, simple=None):
+    def create_schema(self, jsonobj : dict, root_table : str = '', simple : bool = False) -> None:
         if not self.connection or self.connection.closed:
             self.connection = self.engine.connect()
+        if not root_table:
+            root_table = self.root_table
+        if not simple:
+            simple = self.simple
 
         self.schema_changed = False
-        if root_table is None:
-            root_table = self.root_table
-        if simple is None:
-            simple = self.simple
 
         if root_table not in self.metadata.tables:
             self.schema_changed = True
@@ -122,7 +115,7 @@ class SQLThemAll:
         else:
             current_table = self.metadata.tables[root_table]
 
-        def parse_dict(obj, current_table=current_table, simple=simple):
+        def parse_dict(obj : dict, current_table : Table = current_table, simple : bool = simple) -> None:
 
             if obj.__class__ == dict:
                 if obj.__contains__("_id"):
@@ -250,15 +243,12 @@ class SQLThemAll:
 
         if self.schema_changed:
             self.Base = automap_base(metadata=self.metadata)
-            # self.Base.prepare(self.engine, reflect=True)
             self.Base.prepare(self.engine)
-            # self.Base.metadata.create_all(bind=self.connection, checkfirst=False)
             self.metadata.create_all(bind=self.connection)
             self.metadata = self.Base.metadata
             self.classes = self.Base.classes
-        # print(self.metadata.sorted_tables)
 
-    def insertDataToSchema(self, jsonobj):
+    def insertDataToSchema(self, jsonobj : dict) -> None:
 
         if self.schema_changed:
             self.Base = automap_base()
@@ -318,7 +308,9 @@ class SQLThemAll:
                     self.session.add(ormobjc)
                     if collectiondict:
                         for k in collectiondict:
-                            setattr(ormobjc, k.lower() + "_collection", collectiondict[k])
+                            setattr(
+                                ormobjc, k.lower() + "_collection", collectiondict[k]
+                            )
                 else:
                     ormobjc = None
 
@@ -333,7 +325,7 @@ class SQLThemAll:
         if not self.autocommit:
             self.session.commit()
 
-    def importJSON(self, jsonobj):
+    def importJSON(self, jsonobj : dict) -> None:
         if not self.connection or self.connection.closed:
             self.connection = self.engine.connect()
 
@@ -342,7 +334,7 @@ class SQLThemAll:
 
         self.connection.close()
 
-    def importMultiJSON(self, jsonobjs):
+    def importMultiJSON(self, jsonobjs : Iterable) -> None:
         if not self.connection or self.connection.closed:
             self.connection = self.engine.connect()
 

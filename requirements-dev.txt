@@ -1,0 +1,11 @@
+# For testing
+pytest
+pytest-cov
+autoflake
+flake8
+flake8-awesome
+black
+isort
+pyfmt-svtter
+mypy
+pylint
