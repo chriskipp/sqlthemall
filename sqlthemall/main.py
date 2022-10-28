@@ -3,8 +3,8 @@
 import argparse
 import sys
 
-import orjson
 import requests
+import ujson as json
 
 import sqlthemall.json_importer as sta
 
@@ -50,7 +50,9 @@ def main():
     parser.add_argument(
         "-v", "--verbose", action="store_true", help="Print verbose output"
     )
-    parser.add_argument("-q", "--quiet", action="store_true", help="Don't print output")
+    parser.add_argument(
+        "-q", "--quiet", action="store_true", help="Don't print output"
+    )
     parser.add_argument(
         "-e",
         "--echo",
@@ -65,7 +67,10 @@ def main():
         help="Name of the table to import the outermost subobjects if JSON object is a array",
     )
     parser.add_argument(
-        "-l", "--line", action="store_true", help="Uses JSONline instead of JSON"
+        "-l",
+        "--line",
+        action="store_true",
+        help="Uses JSONline instead of JSON",
     )
     parser.add_argument(
         "-S",
@@ -101,8 +106,8 @@ def main():
                 sys.stderr.write("Can not parse JSON from empty string!\n")
                 sys.exit()
             try:
-                obj = orjson.loads(jsonstr)
-            except orjson.JSONDecodeError as e:
+                obj = json.loads(jsonstr)
+            except json.JSONDecodeError as e:
                 sys.stderr.write("Can not parse JSON string!\n")
                 sys.stderr.write(str(e) + "\n")
                 sys.stderr.write(str(jsonstr) + "\n")
@@ -114,8 +119,8 @@ def main():
                 sys.stderr.write("Can not parse JSON from empty string!\n")
                 sys.exit()
             try:
-                obj = orjson.loads(jsonstr)
-            except orjson.JSONDecodeError as e:
+                obj = json.loads(jsonstr)
+            except json.JSONDecodeError as e:
                 sys.stderr.write("Can not parse JSON string!\n")
                 sys.stderr.write(str(e) + "\n")
                 sys.stderr.write(str(jsonstr) + "\n")
@@ -126,38 +131,32 @@ def main():
 
         importer.create_schema(jsonobj=obj)
         if not args.noimport:
-            importer.insertDataToSchema(jsonobj=obj)
+            importer.insert_data_to_schema(jsonobj=obj)
 
     elif args.line:
         if args.url:
             res = requests.get(args.url[0])
-            objs = [orjson.loads(line) for line in res.text.splitlines()]
+            objs = [json.loads(line) for line in res.text.splitlines()]
         elif args.file:
             with open(args.file[0]) as f:
-                objs = [orjson.loads(line) for line in f.readlines()]
+                objs = [json.loads(line) for line in f.readlines()]
         else:
             if not args.sequential:
-                objs = [orjson.loads(line) for line in sys.stdin.readlines()]
+                objs = [json.loads(line) for line in sys.stdin.readlines()]
                 obj = {importer.root_table: objs}
                 importer.create_schema(jsonobj=obj)
                 if not args.noimport:
-                    importer.insertDataToSchema(jsonobj=obj)
+                    importer.insert_data_to_schema(jsonobj=obj)
 
             else:
                 while True:
                     line = sys.stdin.readline()
                     if not line:
                         break
-                    obj = {importer.root_table: orjson.loads(line.strip())}
+                    obj = {importer.root_table: json.loads(line.strip())}
                     importer.create_schema(jsonobj=obj)
                     if not args.noimport:
-                        importer.insertDataToSchema(jsonobj=obj)
-
-        # if args.sequential:
-        #    for obj in objs:
-        #        importer.create_schema(jsonobj=obj)
-        #        if not args.noimport:
-        #            importer.insertDataToSchema(jsonobj=obj)
+                        importer.insert_data_to_schema(jsonobj=obj)
 
 
 if __name__ == "__main__":

@@ -15,6 +15,20 @@ from sqlalchemy.orm import sessionmaker
 
 class SQLThemAll:
 
+    """
+    Class that provides the creationion of relational Database schemata
+    from the structure of JSON as well as the import of the provided
+    JSON data.
+
+    Attributes:
+        dburi (str): Database URI.
+        loglevel (int): Set log level.
+        root_table (str): The name of the table to import the JSON root.
+        simple (bool): Create a simplified database schema.
+        autocommit (bool): Open the database in autocommit mode.
+        echo (bool): Echo the executed SQL statements.
+    """
+
     connection : Optional[Engine] = None
 
     def __init__(
@@ -27,6 +41,17 @@ class SQLThemAll:
         root_table = "main",
         echo : bool = False,
     ) -> None:
+        """
+        The contructor for SQLThemAll class.
+
+        Parameters:
+            dburi (str): Database URI.
+            loglevel (int): Set log level.
+            root_table (str): The name of the table to import the JSON root.
+            simple (bool): Create a simplified database schema.
+            autocommit (bool): Open the database in autocommit mode.
+            echo (bool): Echo the executed SQL statements.
+        """
         self.dburl = dburl
         self.quiet = quiet
         self.verbose = verbose
@@ -46,6 +71,15 @@ class SQLThemAll:
         self.classes = self.Base.classes
 
     def create_many_to_one(self, k : str, current_table : Table) -> Table:
+        """
+        Adds a many to one relationship to the schema.
+
+        Parameters:
+            name (str): New table name.
+            current_table (Table): Current Table.
+        Returns:
+            Newly created Table schema.
+        """
         if not self.quiet:
             print("creating table " + k)
         return Table(
@@ -57,6 +91,15 @@ class SQLThemAll:
         )
 
     def create_many_to_many(self, k : str, current_table : Table) -> Table:
+        """
+        Adds a many to many relationship to the schema.
+
+        Parameters:
+            name (str): New table name.
+            current_table (Table): Current Table.
+        Returns:
+            Newly created Table schema.
+        """
         if not self.quiet:
             print("creating table " + k)
         t = Table(k, self.metadata, Column("_id", Integer, primary_key=True))
@@ -72,6 +115,15 @@ class SQLThemAll:
         return t
 
     def create_one_to_one(self, k : str, current_table : Table) -> Table:
+        """
+        Adds a one to one relationship to the schema.
+
+        Parameters:
+            name (str): New table name.
+            current_table (Table): Current Table.
+        Returns:
+            Newly created Table schema.
+        """
         if not self.quiet:
             print("creating table " + k)
         return Table(
@@ -83,6 +135,15 @@ class SQLThemAll:
         )
 
     def create_one_to_many(self, k : str, current_table : Table) -> Table:
+        """
+        Adds a one to many relationship to the schema.
+
+        Parameters:
+            name (str): New table name.
+            current_table (Table): Current Table.
+        Returns:
+            Newly created Table schema.
+        """
         if not self.quiet:
             print("creating table " + k)
         return Table(
@@ -94,6 +155,14 @@ class SQLThemAll:
         )
 
     def create_schema(self, jsonobj : dict, root_table : str = '', simple : bool = False) -> None:
+        """
+        Creates table_schema from the structure of a given JSON object.
+
+        Parameters:
+            jsonobj (dict): jsonobj.
+            root_table (str): Table name of the JSON object root.
+            simple (bool): Create a simple database schema.
+        """
         if not self.connection or self.connection.closed:
             self.connection = self.engine.connect()
         if not root_table:
@@ -116,6 +185,14 @@ class SQLThemAll:
             current_table = self.metadata.tables[root_table]
 
         def parse_dict(obj : dict, current_table : Table = current_table, simple : bool = simple) -> None:
+            """
+            Creates table_schema from the structure of a given JSON object.
+
+            Parameters:
+                obj (dict): Object to parse.
+                current_table (Table) : The current_table.
+                simple (bool): Create a simple database schema.
+            """
 
             if obj.__class__ == dict:
                 if obj.__contains__("_id"):
@@ -248,7 +325,14 @@ class SQLThemAll:
             self.metadata = self.Base.metadata
             self.classes = self.Base.classes
 
-    def insertDataToSchema(self, jsonobj : dict) -> None:
+    def insert_data_to_schema(self, jsonobj : dict) -> None:
+        """
+        Inserts the given JSON object into the database creating
+        the schema if not availible.
+
+        Parameters:
+            jsonobj (dict): Object to parse.
+        """
 
         if self.schema_changed:
             self.Base = automap_base()
@@ -258,6 +342,14 @@ class SQLThemAll:
         self.session = self.sessionmaker()
 
         def make_relational_obj(name, objc):
+            """
+            Generates a relational object which is insertable from
+            a given JSON object.
+
+            Parameters:
+                name (str): Name of the table that will represent the object.
+                objc (dict): Object to parse.
+            """
             pre_ormobjc, collectiondict = {}, {}
             for k, v in objc.items():
                 if v.__class__ == dict:
@@ -325,21 +417,35 @@ class SQLThemAll:
         if not self.autocommit:
             self.session.commit()
 
-    def importJSON(self, jsonobj : dict) -> None:
+    def import_json(self, jsonobj : dict) -> None:
+        """
+        Inserts the given JSON object into the database creating
+        the schema if not availible.
+
+        Parameters:
+            jsonobj (dict): Object to parse.
+        """
         if not self.connection or self.connection.closed:
             self.connection = self.engine.connect()
 
         self.create_schema(jsonobj)
-        self.insertDataToSchema(jsonobj)
+        self.insert_data_to_schema(jsonobj)
 
         self.connection.close()
 
-    def importMultiJSON(self, jsonobjs : Iterable) -> None:
+    def import_multi_json(self, jsonobjs : Iterable) -> None:
+        """
+        Inserts Array of JSON objects into the database creating
+        the schema if not availible.
+
+        Parameters:
+            jsonobjs (dict): Object to parse.
+        """
         if not self.connection or self.connection.closed:
             self.connection = self.engine.connect()
 
         jsonobj = {self.root_table: jsonobjs}
         self.create_schema(jsonobj)
-        self.insertDataToSchema(jsonobj)
+        self.insert_data_to_schema(jsonobj)
 
         self.connection.close()
