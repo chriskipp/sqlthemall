@@ -4,7 +4,7 @@ from sqlalchemy.orm.collections import InstrumentedList
 
 
 def dbobj2obj(o, parent_class=None):
-    o2 = dict()
+    o2 = {}
     for k, v in o.__dict__.items():
         if k not in {"_sa_instance_state", "_id"} and not k.endswith("_id"):
             if v.__class__ in {str, int, float, bool}:
@@ -24,7 +24,7 @@ def dbobj2obj(o, parent_class=None):
 
 def compare_obj(o1, o2):
     def normalize(o):
-        o2, o3 = dict(), dict()
+        o2, o3 = {}, {}
         for k in o.keys():
             o2[k.lower()] = o[k]
         for k in sorted(o2.keys()):
