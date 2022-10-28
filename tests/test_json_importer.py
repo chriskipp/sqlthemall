@@ -57,8 +57,10 @@ def tablename(c):
 @pytest.mark.parametrize("root_table", root_tables)
 def test_import_json(obj, simple, root_table):
     importer = SQLThemAll(simple=simple, root_table=root_table)
-    importer.importJSON(obj)
-    root_class = [c for c in importer.classes if tablename(c) == importer.root_table][0]
+    importer.import_json(obj)
+    root_class = [
+        c for c in importer.classes if tablename(c) == importer.root_table
+    ][0]
     session = importer.sessionmaker()
     if session.query(root_class).all():
         dbobj = session.query(root_class).all()[0]
@@ -73,8 +75,10 @@ def test_import_json(obj, simple, root_table):
 def test_import_multi_json(array, simple, root_table):
 
     importer = SQLThemAll(simple=simple, root_table=root_table)
-    importer.importMultiJSON(array)
-    root_class = [c for c in importer.classes if tablename(c) == importer.root_table][0]
+    importer.import_multi_json(array)
+    root_class = [
+        c for c in importer.classes if tablename(c) == importer.root_table
+    ][0]
     session = importer.sessionmaker()
     dbobjs = session.query(root_class).all()
     for dbobj, obj in zip(dbobjs, array):

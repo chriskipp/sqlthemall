@@ -1,11 +1,10 @@
-# For testing
-pytest
-pytest-cov
-autoflake
-flake8
-flake8-awesome
-black
-isort
-pyfmt-svtter
-mypy
-pylint
+autoflake==1.7.7
+black==22.10.0
+flake8==5.0.4
+flake8-awesome==1.3.0
+isort==5.10.1
+mypy==0.982
+pyfmt-svtter==0.1.0
+pylint==2.15.5
+pytest==7.2.0
+pytest-cov==4.0.0

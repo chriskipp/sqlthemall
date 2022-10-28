@@ -50,7 +50,9 @@ def main():
     parser.add_argument(
         "-v", "--verbose", action="store_true", help="Print verbose output"
     )
-    parser.add_argument("-q", "--quiet", action="store_true", help="Don't print output")
+    parser.add_argument(
+        "-q", "--quiet", action="store_true", help="Don't print output"
+    )
     parser.add_argument(
         "-e",
         "--echo",
@@ -65,7 +67,10 @@ def main():
         help="Name of the table to import the outermost subobjects if JSON object is a array",
     )
     parser.add_argument(
-        "-l", "--line", action="store_true", help="Uses JSONline instead of JSON"
+        "-l",
+        "--line",
+        action="store_true",
+        help="Uses JSONline instead of JSON",
     )
     parser.add_argument(
         "-S",
@@ -126,7 +131,7 @@ def main():
 
         importer.create_schema(jsonobj=obj)
         if not args.noimport:
-            importer.insertDataToSchema(jsonobj=obj)
+            importer.insert_data_to_schema(jsonobj=obj)
 
     elif args.line:
         if args.url:
@@ -141,7 +146,7 @@ def main():
                 obj = {importer.root_table: objs}
                 importer.create_schema(jsonobj=obj)
                 if not args.noimport:
-                    importer.insertDataToSchema(jsonobj=obj)
+                    importer.insert_data_to_schema(jsonobj=obj)
 
             else:
                 while True:
@@ -151,13 +156,7 @@ def main():
                     obj = {importer.root_table: orjson.loads(line.strip())}
                     importer.create_schema(jsonobj=obj)
                     if not args.noimport:
-                        importer.insertDataToSchema(jsonobj=obj)
-
-        # if args.sequential:
-        #    for obj in objs:
-        #        importer.create_schema(jsonobj=obj)
-        #        if not args.noimport:
-        #            importer.insertDataToSchema(jsonobj=obj)
+                        importer.insert_data_to_schema(jsonobj=obj)
 
 
 if __name__ == "__main__":
