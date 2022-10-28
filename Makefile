@@ -53,6 +53,8 @@ clean:
 	rm -f `find . -type f -name '*.orig' `
 	rm -f `find . -type f -name '*.rej' `
 	rm -rf _virtualenv
+	rm -rf _requirements.txt
+	rm -rf _requirements-dev.txt
 	rm -rf .coverage
 	rm -rf coverage
 	rm -rf build
@@ -68,6 +70,7 @@ clean:
 bootstrap: _virtualenv
 	_virtualenv/bin/pip install -e .
 ifneq ($(wildcard requirements-dev.txt),)
+	_virtualenv/bin/pip install -r requirements.txt
 	_virtualenv/bin/pip install -r requirements-dev.txt
 endif
 	make clean
@@ -81,5 +84,6 @@ _virtualenv:
 
 update_req: _virtualenv
 	sh -c '. _virtualenv/bin/activate; REQILE="requirements-dev.txt"; cat "${REQILE}" | xargs --max-args=1 --delimiter='\n' python3 -m pip install -U; _cat "${REQILE}" | sed -e 's/[<>=]\+.*//' -e 's/^/^/' -e 's/$/[=]/g' > "_${REQILE}"; _python3 -m pip list --format=freeze | grep -f "_${REQILE}" > "${REQILE}"'
+	sh -c '. _virtualenv/bin/activate; REQILE="requirements.txt"; cat "${REQILE}" | xargs --max-args=1 --delimiter='\n' python3 -m pip install -U; _cat "${REQILE}" | sed -e 's/[<>=]\+.*//' -e 's/^/^/' -e 's/$/[=]/g' > "_${REQILE}"; _python3 -m pip list --format=freeze | grep -f "_${REQILE}" > "${REQILE}"'
 
 
