@@ -13,6 +13,7 @@ isort:
 	isort .
 
 mypy:
+	mypy --install-types .
 	mypy --ignore-missing-imports .
 
 lint: black flake isort mypy mypy

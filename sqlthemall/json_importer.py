@@ -2,10 +2,10 @@
 
 import datetime
 import sys
-
-from typing import Optional 
-import alembic
 from collections.abc import Iterable
+from typing import Optional
+
+import alembic
 from sqlalchemy import (Boolean, Column, Date, Float, ForeignKey, Integer,
                         MetaData, String, Table, create_engine)
 from sqlalchemy.engine import Engine
@@ -29,17 +29,17 @@ class SQLThemAll:
         echo (bool): Echo the executed SQL statements.
     """
 
-    connection : Optional[Engine] = None
+    connection: Optional[Engine] = None
 
     def __init__(
         self,
-        dburl : str = "sqlite://",
-        quiet : bool  = True,
-        verbose : bool = False,
-        simple : bool = False,
-        autocommit : bool = False,
-        root_table = "main",
-        echo : bool = False,
+        dburl: str = "sqlite://",
+        quiet: bool = True,
+        verbose: bool = False,
+        simple: bool = False,
+        autocommit: bool = False,
+        root_table="main",
+        echo: bool = False,
     ) -> None:
         """
         The contructor for SQLThemAll class.
@@ -64,13 +64,17 @@ class SQLThemAll:
 
         self.engine = create_engine(self.dburl, echo=self.echo)
         self.metadata = MetaData(bind=self.engine)
-        self.metadata.reflect(self.engine, extend_existing=True, autoload_replace=True)
-        self.sessionmaker = sessionmaker(self.engine, autocommit=self.autocommit)
+        self.metadata.reflect(
+            self.engine, extend_existing=True, autoload_replace=True
+        )
+        self.sessionmaker = sessionmaker(
+            self.engine, autocommit=self.autocommit
+        )
         self.Base = automap_base(metadata=self.metadata)
         self.Base.prepare(self.engine, reflect=True)
         self.classes = self.Base.classes
 
-    def create_many_to_one(self, k : str, current_table : Table) -> Table:
+    def create_many_to_one(self, k: str, current_table: Table) -> Table:
         """
         Adds a many to one relationship to the schema.
 
@@ -86,11 +90,14 @@ class SQLThemAll:
             k,
             self.metadata,
             Column("_id", Integer, primary_key=True),
-            Column(current_table.name + "_id", ForeignKey(current_table.name + "._id")),
+            Column(
+                current_table.name + "_id",
+                ForeignKey(current_table.name + "._id"),
+            ),
             extend_existing=True,
         )
 
-    def create_many_to_many(self, k : str, current_table : Table) -> Table:
+    def create_many_to_many(self, k: str, current_table: Table) -> Table:
         """
         Adds a many to many relationship to the schema.
 
@@ -108,13 +115,16 @@ class SQLThemAll:
         bridge = Table(
             "bridge_" + current_table.name + "_" + k,
             self.metadata,
-            Column(current_table.name + "_id", ForeignKey(current_table.name + "._id")),
+            Column(
+                current_table.name + "_id",
+                ForeignKey(current_table.name + "._id"),
+            ),
             Column(k + "_id", ForeignKey(k + "._id")),
             extend_existing=True,
         )
         return t
 
-    def create_one_to_one(self, k : str, current_table : Table) -> Table:
+    def create_one_to_one(self, k: str, current_table: Table) -> Table:
         """
         Adds a one to one relationship to the schema.
 
@@ -130,11 +140,14 @@ class SQLThemAll:
             k,
             self.metadata,
             Column("_id", Integer, primary_key=True),
-            Column(current_table.name + "_id", ForeignKey(current_table.name + "._id")),
+            Column(
+                current_table.name + "_id",
+                ForeignKey(current_table.name + "._id"),
+            ),
             extend_existing=True,
         )
 
-    def create_one_to_many(self, k : str, current_table : Table) -> Table:
+    def create_one_to_many(self, k: str, current_table: Table) -> Table:
         """
         Adds a one to many relationship to the schema.
 
@@ -150,11 +163,16 @@ class SQLThemAll:
             k,
             self.metadata,
             Column("_id", Integer, primary_key=True),
-            Column(current_table.name + "_id", ForeignKey(current_table.name + "._id")),
+            Column(
+                current_table.name + "_id",
+                ForeignKey(current_table.name + "._id"),
+            ),
             extend_existing=True,
         )
 
-    def create_schema(self, jsonobj : dict, root_table : str = '', simple : bool = False) -> None:
+    def create_schema(
+        self, jsonobj: dict, root_table: str = "", simple: bool = False
+    ) -> None:
         """
         Creates table_schema from the structure of a given JSON object.
 
@@ -184,7 +202,11 @@ class SQLThemAll:
         else:
             current_table = self.metadata.tables[root_table]
 
-        def parse_dict(obj : dict, current_table : Table = current_table, simple : bool = simple) -> None:
+        def parse_dict(
+            obj: dict,
+            current_table: Table = current_table,
+            simple: bool = simple,
+        ) -> None:
             """
             Creates table_schema from the structure of a given JSON object.
 
@@ -200,7 +222,11 @@ class SQLThemAll:
                 for k, v in obj.items():
                     if k in (c.name for c in current_table.columns):
                         if self.verbose:
-                            print(k + " already exists in table " + current_table.name)
+                            print(
+                                k
+                                + " already exists in table "
+                                + current_table.name
+                            )
                         continue
                     else:
                         if v.__class__ == datetime.date:
@@ -295,19 +321,23 @@ class SQLThemAll:
                                 if not [i for i in v if i is not None]:
                                     continue
                                 v = [
-                                    item if item.__class__ == dict else {"value": item}
+                                    item
+                                    if item.__class__ == dict
+                                    else {"value": item}
                                     for item in v
                                 ]
                                 for item in v:
                                     if k not in self.metadata.tables:
                                         if not simple:
                                             t = self.create_many_to_many(
-                                                k=k, current_table=current_table
+                                                k=k,
+                                                current_table=current_table,
                                             )
                                             t.create(self.engine)
                                         else:
                                             t = self.create_one_to_many(
-                                                k=k, current_table=current_table
+                                                k=k,
+                                                current_table=current_table,
                                             )
                                             t.create(self.engine)
                                     else:
@@ -325,7 +355,7 @@ class SQLThemAll:
             self.metadata = self.Base.metadata
             self.classes = self.Base.classes
 
-    def insert_data_to_schema(self, jsonobj : dict) -> None:
+    def insert_data_to_schema(self, jsonobj: dict) -> None:
         """
         Inserts the given JSON object into the database creating
         the schema if not availible.
@@ -360,8 +390,13 @@ class SQLThemAll:
                     if v:
                         if not [i for i in v if i is not None]:
                             continue
-                        v = [i if i.__class__ == dict else {"value": i} for i in v]
-                        collectiondict[k] = [make_relational_obj(k, i) for i in v]
+                        v = [
+                            i if i.__class__ == dict else {"value": i}
+                            for i in v
+                        ]
+                        collectiondict[k] = [
+                            make_relational_obj(k, i) for i in v
+                        ]
                 elif v is None:
                     continue
                 else:
@@ -387,7 +422,11 @@ class SQLThemAll:
                 ormobjc = in_session[0]
                 if collectiondict:
                     for k in collectiondict:
-                        setattr(ormobjc, k.lower() + "_collection", collectiondict[k])
+                        setattr(
+                            ormobjc,
+                            k.lower() + "_collection",
+                            collectiondict[k],
+                        )
             else:
                 if pre_ormobjc:
                     try:
@@ -401,7 +440,9 @@ class SQLThemAll:
                     if collectiondict:
                         for k in collectiondict:
                             setattr(
-                                ormobjc, k.lower() + "_collection", collectiondict[k]
+                                ormobjc,
+                                k.lower() + "_collection",
+                                collectiondict[k],
                             )
                 else:
                     ormobjc = None
@@ -417,7 +458,7 @@ class SQLThemAll:
         if not self.autocommit:
             self.session.commit()
 
-    def import_json(self, jsonobj : dict) -> None:
+    def import_json(self, jsonobj: dict) -> None:
         """
         Inserts the given JSON object into the database creating
         the schema if not availible.
@@ -433,7 +474,7 @@ class SQLThemAll:
 
         self.connection.close()
 
-    def import_multi_json(self, jsonobjs : Iterable) -> None:
+    def import_multi_json(self, jsonobjs: Iterable) -> None:
         """
         Inserts Array of JSON objects into the database creating
         the schema if not availible.
