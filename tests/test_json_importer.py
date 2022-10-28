@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
+import json
 from pathlib import Path
 
-import orjson
 import pytest
 
 from sqlthemall.json_importer import SQLThemAll
@@ -19,7 +19,7 @@ paths = [p.as_posix()[14:-5] for p in Path("data/testdata/").glob("*.json")]
 
 @pytest.mark.parametrize("path", paths)
 def test_schema_generation(path):
-    jsonobj = orjson.loads(readfile("data/testdata/" + path + ".json"))
+    jsonobj = json.loads(readfile("data/testdata/" + path + ".json"))
     schema = readfile("data/testvalidate/" + path + ".schema")
     importer = SQLThemAll()
     importer.create_schema(jsonobj)
@@ -28,7 +28,7 @@ def test_schema_generation(path):
 
 @pytest.mark.parametrize("path", paths)
 def test_schema_generation_simple(path):
-    jsonobj = orjson.loads(readfile("data/testdata/" + path + ".json"))
+    jsonobj = json.loads(readfile("data/testdata/" + path + ".json"))
     schema = readfile("data/testvalidate/" + path + ".simple_schema")
     importer = SQLThemAll(simple=True)
     importer.create_schema(jsonobj)
@@ -36,12 +36,12 @@ def test_schema_generation_simple(path):
 
 
 objects = [
-    orjson.loads(readfile("data/testdata/" + p + ".json"))
+    json.loads(readfile("data/testdata/" + p + ".json"))
     for p in paths
     if p.startswith("object")
 ]
 arrays = [
-    orjson.loads(readfile("data/testdata/" + p + ".json"))
+    json.loads(readfile("data/testdata/" + p + ".json"))
     for p in paths
     if p.startswith("array")
 ]

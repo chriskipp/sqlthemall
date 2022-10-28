@@ -24,7 +24,12 @@ setup(
     license="GPLv3",
     packages=["sqlthemall"],
     scripts=["bin/sqlthemall"],
-    install_requires=["SQLalchemy >= 1.3.20", "alembic >= 1.5.8", "orjson", "requests"],
+    install_requires=[
+        "SQLalchemy >= 1.3.20",
+        "alembic >= 1.5.8",
+        "ujson",
+        "requests",
+    ],
     include_package_data=True,
     zip_safe=False,
 )

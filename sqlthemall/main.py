@@ -3,8 +3,8 @@
 import argparse
 import sys
 
-import orjson
 import requests
+import ujson as json
 
 import sqlthemall.json_importer as sta
 
@@ -106,8 +106,8 @@ def main():
                 sys.stderr.write("Can not parse JSON from empty string!\n")
                 sys.exit()
             try:
-                obj = orjson.loads(jsonstr)
-            except orjson.JSONDecodeError as e:
+                obj = json.loads(jsonstr)
+            except json.JSONDecodeError as e:
                 sys.stderr.write("Can not parse JSON string!\n")
                 sys.stderr.write(str(e) + "\n")
                 sys.stderr.write(str(jsonstr) + "\n")
@@ -119,8 +119,8 @@ def main():
                 sys.stderr.write("Can not parse JSON from empty string!\n")
                 sys.exit()
             try:
-                obj = orjson.loads(jsonstr)
-            except orjson.JSONDecodeError as e:
+                obj = json.loads(jsonstr)
+            except json.JSONDecodeError as e:
                 sys.stderr.write("Can not parse JSON string!\n")
                 sys.stderr.write(str(e) + "\n")
                 sys.stderr.write(str(jsonstr) + "\n")
@@ -136,13 +136,13 @@ def main():
     elif args.line:
         if args.url:
             res = requests.get(args.url[0])
-            objs = [orjson.loads(line) for line in res.text.splitlines()]
+            objs = [json.loads(line) for line in res.text.splitlines()]
         elif args.file:
             with open(args.file[0]) as f:
-                objs = [orjson.loads(line) for line in f.readlines()]
+                objs = [json.loads(line) for line in f.readlines()]
         else:
             if not args.sequential:
-                objs = [orjson.loads(line) for line in sys.stdin.readlines()]
+                objs = [json.loads(line) for line in sys.stdin.readlines()]
                 obj = {importer.root_table: objs}
                 importer.create_schema(jsonobj=obj)
                 if not args.noimport:
@@ -153,7 +153,7 @@ def main():
                     line = sys.stdin.readline()
                     if not line:
                         break
-                    obj = {importer.root_table: orjson.loads(line.strip())}
+                    obj = {importer.root_table: json.loads(line.strip())}
                     importer.create_schema(jsonobj=obj)
                     if not args.noimport:
                         importer.insert_data_to_schema(jsonobj=obj)
