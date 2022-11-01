@@ -16,7 +16,7 @@ mypy:
 	mypy --install-types .
 	mypy --ignore-missing-imports .
 
-lint: black flake isort mypy mypy
+lint: black flake isort mypy
 
 #.PHONY: flake isort black clean clean_up  #test
 
