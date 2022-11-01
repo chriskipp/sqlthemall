@@ -96,7 +96,7 @@ def main():
 
     if not args.line:
         if args.url:
-            res = requests.get(args.url[0])
+            res = requests.get(args.url[0], timeout=300)
             obj = res.json()
         elif args.file:
             with open(args.file[0]) as f:
@@ -135,7 +135,7 @@ def main():
 
     elif args.line:
         if args.url:
-            res = requests.get(args.url[0])
+            res = requests.get(args.url[0], timeout=300)
             objs = [json.loads(line) for line in res.text.splitlines()]
         elif args.file:
             with open(args.file[0]) as f:

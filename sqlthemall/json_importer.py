@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+"""
+This module contains the main importer class `SQLThemAll`.
+"""
 
 import datetime
 import sys
@@ -30,6 +33,8 @@ class SQLThemAll:
     """
 
     connection: Optional[Engine] = None
+    schema_changed: bool = False
+    session = None
 
     def __init__(
         self,
@@ -70,9 +75,9 @@ class SQLThemAll:
         self.sessionmaker = sessionmaker(
             self.engine, autocommit=self.autocommit
         )
-        self.Base = automap_base(metadata=self.metadata)
-        self.Base.prepare(self.engine, reflect=True)
-        self.classes = self.Base.classes
+        self.base = automap_base(metadata=self.metadata)
+        self.base.prepare(self.engine, reflect=True)
+        self.classes = self.base.classes
 
     def create_many_to_one(self, k: str, current_table: Table) -> Table:
         """
@@ -109,10 +114,10 @@ class SQLThemAll:
         """
         if not self.quiet:
             print("creating table " + k)
-        t = Table(k, self.metadata, Column("_id", Integer, primary_key=True))
+        tbl = Table(k, self.metadata, Column("_id", Integer, primary_key=True))
         if not self.quiet:
             print("creating bridge " + current_table.name + " - " + k)
-        bridge = Table(
+        Table(
             "bridge_" + current_table.name + "_" + k,
             self.metadata,
             Column(
@@ -122,7 +127,7 @@ class SQLThemAll:
             Column(k + "_id", ForeignKey(k + "._id")),
             extend_existing=True,
         )
-        return t
+        return tbl
 
     def create_one_to_one(self, k: str, current_table: Table) -> Table:
         """
@@ -217,7 +222,7 @@ class SQLThemAll:
             """
 
             if obj.__class__ == dict:
-                if obj.__contains__("_id"):
+                if "_id" in obj:
                     obj["id"] = obj.pop("_id")
                 for k, v in obj.items():
                     if k in (c.name for c in current_table.columns):
@@ -228,132 +233,131 @@ class SQLThemAll:
                                 + current_table.name
                             )
                         continue
-                    else:
-                        if v.__class__ == datetime.date:
+                    if v.__class__ == datetime.date:
+                        self.schema_changed = True
+                        current_table.append_column(Column(k, Date()))
+                        alembic.ddl.base.AddColumn(
+                            current_table.name,
+                            Column(k, Date()),
+                        ).execute(self.engine)
+                        if not self.quiet:
+                            print(
+                                "  adding col "
+                                + k
+                                + " to table "
+                                + current_table.name
+                            )
+                    if v.__class__ == str:
+                        self.schema_changed = True
+                        current_table.append_column(Column(k, String()))
+                        alembic.ddl.base.AddColumn(
+                            current_table.name,
+                            Column(k, String()),
+                        ).execute(self.engine)
+                        if not self.quiet:
+                            print(
+                                "  adding col "
+                                + k
+                                + " to table "
+                                + current_table.name
+                            )
+                    elif v.__class__ == int:
+                        self.schema_changed = True
+                        current_table.append_column(Column(k, Integer()))
+                        alembic.ddl.base.AddColumn(
+                            current_table.name,
+                            Column(k, Integer()),
+                        ).execute(self.engine)
+                        if not self.quiet:
+                            print(
+                                "  adding col "
+                                + k
+                                + " to table "
+                                + current_table.name
+                            )
+                    elif v.__class__ == float:
+                        self.schema_changed = True
+                        current_table.append_column(Column(k, Float()))
+                        alembic.ddl.base.AddColumn(
+                            current_table.name,
+                            Column(k, Float()),
+                        ).execute(self.engine)
+                        if not self.quiet:
+                            print(
+                                "  adding col "
+                                + k
+                                + " to table "
+                                + current_table.name
+                            )
+                    elif v.__class__ == bool:
+                        self.schema_changed = True
+                        current_table.append_column(Column(k, Boolean()))
+                        alembic.ddl.base.AddColumn(
+                            current_table.name,
+                            Column(k, Boolean()),
+                        ).execute(self.engine)
+                        if not self.quiet:
+                            print(
+                                "  adding col "
+                                + k
+                                + " to table "
+                                + current_table.name
+                            )
+                    elif v.__class__ == dict:
+                        if k not in self.metadata.tables:
                             self.schema_changed = True
-                            current_table.append_column(Column(k, Date()))
-                            alembic.ddl.base.AddColumn(
-                                current_table.name,
-                                Column(k, Date()),
-                            ).execute(self.engine)
-                            if not self.quiet:
-                                print(
-                                    "  adding col "
-                                    + k
-                                    + " to table "
-                                    + current_table.name
+                            if not simple:
+                                tbl = self.create_many_to_one(
+                                    k=k, current_table=current_table
                                 )
-                        if v.__class__ == str:
-                            self.schema_changed = True
-                            current_table.append_column(Column(k, String()))
-                            alembic.ddl.base.AddColumn(
-                                current_table.name,
-                                Column(k, String()),
-                            ).execute(self.engine)
-                            if not self.quiet:
-                                print(
-                                    "  adding col "
-                                    + k
-                                    + " to table "
-                                    + current_table.name
-                                )
-                        elif v.__class__ == int:
-                            self.schema_changed = True
-                            current_table.append_column(Column(k, Integer()))
-                            alembic.ddl.base.AddColumn(
-                                current_table.name,
-                                Column(k, Integer()),
-                            ).execute(self.engine)
-                            if not self.quiet:
-                                print(
-                                    "  adding col "
-                                    + k
-                                    + " to table "
-                                    + current_table.name
-                                )
-                        elif v.__class__ == float:
-                            self.schema_changed = True
-                            current_table.append_column(Column(k, Float()))
-                            alembic.ddl.base.AddColumn(
-                                current_table.name,
-                                Column(k, Float()),
-                            ).execute(self.engine)
-                            if not self.quiet:
-                                print(
-                                    "  adding col "
-                                    + k
-                                    + " to table "
-                                    + current_table.name
-                                )
-                        elif v.__class__ == bool:
-                            self.schema_changed = True
-                            current_table.append_column(Column(k, Boolean()))
-                            alembic.ddl.base.AddColumn(
-                                current_table.name,
-                                Column(k, Boolean()),
-                            ).execute(self.engine)
-                            if not self.quiet:
-                                print(
-                                    "  adding col "
-                                    + k
-                                    + " to table "
-                                    + current_table.name
-                                )
-                        elif v.__class__ == dict:
-                            if k not in self.metadata.tables:
-                                self.schema_changed = True
-                                if not simple:
-                                    t = self.create_many_to_one(
-                                        k=k, current_table=current_table
-                                    )
-                                    t.create(self.engine)
-                                else:
-                                    t = self.create_one_to_one(
-                                        k=k, current_table=current_table
-                                    )
-                                    t.create(self.engine)
+                                tbl.create(self.engine)
                             else:
-                                t = self.metadata.tables[k]
-                            parse_dict(obj=v, current_table=t)
+                                tbl = self.create_one_to_one(
+                                    k=k, current_table=current_table
+                                )
+                                tbl.create(self.engine)
+                        else:
+                            tbl = self.metadata.tables[k]
+                        parse_dict(obj=v, current_table=tbl)
 
-                        elif v.__class__ == list:
-                            if v:
-                                if not [i for i in v if i is not None]:
-                                    continue
-                                v = [
-                                    item
-                                    if item.__class__ == dict
-                                    else {"value": item}
-                                    for item in v
-                                ]
-                                for item in v:
-                                    if k not in self.metadata.tables:
-                                        if not simple:
-                                            t = self.create_many_to_many(
-                                                k=k,
-                                                current_table=current_table,
-                                            )
-                                            t.create(self.engine)
-                                        else:
-                                            t = self.create_one_to_many(
-                                                k=k,
-                                                current_table=current_table,
-                                            )
-                                            t.create(self.engine)
+                    elif v.__class__ == list:
+                        if v:
+                            if not [i for i in v if i is not None]:
+                                continue
+                            v = [
+                                item
+                                if item.__class__ == dict
+                                else {"value": item}
+                                for item in v
+                            ]
+                            for item in v:
+                                if k not in self.metadata.tables:
+                                    if not simple:
+                                        tbl = self.create_many_to_many(
+                                            k=k,
+                                            current_table=current_table,
+                                        )
+                                        tbl.create(self.engine)
                                     else:
-                                        t = self.metadata.tables[k]
-                                    parse_dict(obj=item, current_table=t)
+                                        tbl = self.create_one_to_many(
+                                            k=k,
+                                            current_table=current_table,
+                                        )
+                                        tbl.create(self.engine)
+                                else:
+                                    tbl = self.metadata.tables[k]
+                                parse_dict(obj=item, current_table=tbl)
 
         if jsonobj.__class__ == list:
             jsonobj = {self.root_table: jsonobj}
         parse_dict(jsonobj)
 
         if self.schema_changed:
-            self.Base = automap_base(metadata=self.metadata)
-            self.Base.prepare(self.engine)
+            self.base = automap_base(metadata=self.metadata)
+            self.base.prepare(self.engine)
             self.metadata.create_all(bind=self.connection)
-            self.metadata = self.Base.metadata
-            self.classes = self.Base.classes
+            self.metadata = self.base.metadata
+            self.classes = self.base.classes
 
     def insert_data_to_schema(self, jsonobj: dict) -> None:
         """
@@ -365,9 +369,9 @@ class SQLThemAll:
         """
 
         if self.schema_changed:
-            self.Base = automap_base()
-            self.Base.prepare(self.engine, reflect=True)
-            self.classes = self.Base.classes
+            self.base = automap_base()
+            self.base.prepare(self.engine, reflect=True)
+            self.classes = self.base.classes
 
         self.session = self.sessionmaker()
 
@@ -383,7 +387,7 @@ class SQLThemAll:
             pre_ormobjc, collectiondict = {}, {}
             for k, v in objc.items():
                 if v.__class__ == dict:
-                    if objc.__contains__("_id"):
+                    if "_id" in objc:
                         objc["id"] = objc.pop("_id")
                     collectiondict[k] = [make_relational_obj(k, v)]
                 elif v.__class__ == list:
@@ -421,11 +425,11 @@ class SQLThemAll:
             if in_session:
                 ormobjc = in_session[0]
                 if collectiondict:
-                    for k in collectiondict:
+                    for k, v in collectiondict.items():
                         setattr(
                             ormobjc,
                             k.lower() + "_collection",
-                            collectiondict[k],
+                            v,
                         )
             else:
                 if pre_ormobjc:
