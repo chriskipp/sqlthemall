@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+"""
+Python file to be called from the command line programm
+"""
 
 import argparse
 import sys
@@ -10,6 +13,8 @@ import sqlthemall.json_importer as sta
 
 
 def main():
+    """main function
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "-d",
@@ -99,7 +104,7 @@ def main():
             res = requests.get(args.url[0], timeout=300)
             obj = res.json()
         elif args.file:
-            with open(args.file[0]) as f:
+            with open(args.file[0], encoding="utf-8") as f:
                 jsonstr = f.read()
             jsonstr = jsonstr.strip()
             if not jsonstr:
@@ -138,7 +143,7 @@ def main():
             res = requests.get(args.url[0], timeout=300)
             objs = [json.loads(line) for line in res.text.splitlines()]
         elif args.file:
-            with open(args.file[0]) as f:
+            with open(args.file[0], encoding="utf-8") as f:
                 objs = [json.loads(line) for line in f.readlines()]
         else:
             if not args.sequential:

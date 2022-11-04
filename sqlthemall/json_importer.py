@@ -5,9 +5,11 @@ This module contains the main importer class `SQLThemAll`.
 
 import datetime
 import sys
+import traceback
 from collections.abc import Iterable
 from typing import Optional
 
+import logging
 import alembic
 from sqlalchemy import (Boolean, Column, Date, Float, ForeignKey, Integer,
                         MetaData, String, Table, create_engine)
@@ -15,6 +17,24 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import sessionmaker
 
+# create logger
+logger = logging.getLogger('json_exporter')
+#logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
+
+# create console handler and set level to debug
+ch = logging.StreamHandler()
+#ch.setLevel(logging.DEBUG)
+ch.setLevel(logging.INFO)
+
+# create formatter
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+# add formatter to ch
+ch.setFormatter(formatter)
+
+# add ch to logger
+logger.addHandler(ch)
 
 class SQLThemAll:
 
@@ -89,8 +109,7 @@ class SQLThemAll:
         Returns:
             Newly created Table schema.
         """
-        if not self.quiet:
-            print("creating table " + k)
+        logger.info('creating table %s', k)
         return Table(
             k,
             self.metadata,
@@ -112,11 +131,9 @@ class SQLThemAll:
         Returns:
             Newly created Table schema.
         """
-        if not self.quiet:
-            print("creating table " + k)
+        logger.info('creating table %s', k)
         tbl = Table(k, self.metadata, Column("_id", Integer, primary_key=True))
-        if not self.quiet:
-            print("creating bridge " + current_table.name + " - " + k)
+        logger.info('creating bridge %s - %s', current_table.name, k)
         Table(
             "bridge_" + current_table.name + "_" + k,
             self.metadata,
@@ -139,8 +156,7 @@ class SQLThemAll:
         Returns:
             Newly created Table schema.
         """
-        if not self.quiet:
-            print("creating table " + k)
+        logger.info('creating table %s', k)
         return Table(
             k,
             self.metadata,
@@ -162,8 +178,7 @@ class SQLThemAll:
         Returns:
             Newly created Table schema.
         """
-        if not self.quiet:
-            print("creating table " + k)
+        logger.info('creating table %s', k)
         return Table(
             k,
             self.metadata,
@@ -224,86 +239,25 @@ class SQLThemAll:
             if obj.__class__ == dict:
                 if "_id" in obj:
                     obj["id"] = obj.pop("_id")
-                for k, v in obj.items():
+                for k, val in obj.items():
                     if k in (c.name for c in current_table.columns):
-                        if self.verbose:
-                            print(
-                                k
-                                + " already exists in table "
-                                + current_table.name
-                            )
+                        logger.debug('%s already exists in table %s', k, current_table.name)
                         continue
-                    if v.__class__ == datetime.date:
-                        self.schema_changed = True
-                        current_table.append_column(Column(k, Date()))
+                    col_types = {
+                        datetime.date: Date,
+                        str: String,
+                        bool: Boolean,
+                        int: Integer,
+                        float: Float,
+                    }
+                    if val.__class__ in col_types:
+                        current_table.append_column(Column(k, col_types[val.__class__]()))
                         alembic.ddl.base.AddColumn(
                             current_table.name,
-                            Column(k, Date()),
+                            Column(k, col_types[val.__class__]()),
                         ).execute(self.engine)
-                        if not self.quiet:
-                            print(
-                                "  adding col "
-                                + k
-                                + " to table "
-                                + current_table.name
-                            )
-                    if v.__class__ == str:
-                        self.schema_changed = True
-                        current_table.append_column(Column(k, String()))
-                        alembic.ddl.base.AddColumn(
-                            current_table.name,
-                            Column(k, String()),
-                        ).execute(self.engine)
-                        if not self.quiet:
-                            print(
-                                "  adding col "
-                                + k
-                                + " to table "
-                                + current_table.name
-                            )
-                    elif v.__class__ == int:
-                        self.schema_changed = True
-                        current_table.append_column(Column(k, Integer()))
-                        alembic.ddl.base.AddColumn(
-                            current_table.name,
-                            Column(k, Integer()),
-                        ).execute(self.engine)
-                        if not self.quiet:
-                            print(
-                                "  adding col "
-                                + k
-                                + " to table "
-                                + current_table.name
-                            )
-                    elif v.__class__ == float:
-                        self.schema_changed = True
-                        current_table.append_column(Column(k, Float()))
-                        alembic.ddl.base.AddColumn(
-                            current_table.name,
-                            Column(k, Float()),
-                        ).execute(self.engine)
-                        if not self.quiet:
-                            print(
-                                "  adding col "
-                                + k
-                                + " to table "
-                                + current_table.name
-                            )
-                    elif v.__class__ == bool:
-                        self.schema_changed = True
-                        current_table.append_column(Column(k, Boolean()))
-                        alembic.ddl.base.AddColumn(
-                            current_table.name,
-                            Column(k, Boolean()),
-                        ).execute(self.engine)
-                        if not self.quiet:
-                            print(
-                                "  adding col "
-                                + k
-                                + " to table "
-                                + current_table.name
-                            )
-                    elif v.__class__ == dict:
+                        logger.info('adding col %s to table %s', k, current_table.name)
+                    elif val.__class__ == dict:
                         if k not in self.metadata.tables:
                             self.schema_changed = True
                             if not simple:
@@ -318,19 +272,19 @@ class SQLThemAll:
                                 tbl.create(self.engine)
                         else:
                             tbl = self.metadata.tables[k]
-                        parse_dict(obj=v, current_table=tbl)
+                        parse_dict(obj=val, current_table=tbl)
 
-                    elif v.__class__ == list:
-                        if v:
-                            if not [i for i in v if i is not None]:
+                    elif val.__class__ == list:
+                        if val:
+                            if not [i for i in val if i is not None]:
                                 continue
-                            v = [
+                            val = [
                                 item
                                 if item.__class__ == dict
                                 else {"value": item}
-                                for item in v
+                                for item in val
                             ]
-                            for item in v:
+                            for item in val:
                                 if k not in self.metadata.tables:
                                     if not simple:
                                         tbl = self.create_many_to_many(
@@ -385,32 +339,30 @@ class SQLThemAll:
                 objc (dict): Object to parse.
             """
             pre_ormobjc, collectiondict = {}, {}
-            for k, v in objc.items():
-                if v.__class__ == dict:
+            for k, val in objc.items():
+                if val.__class__ == dict:
                     if "_id" in objc:
                         objc["id"] = objc.pop("_id")
-                    collectiondict[k] = [make_relational_obj(k, v)]
-                elif v.__class__ == list:
-                    if v:
-                        if not [i for i in v if i is not None]:
+                    collectiondict[k] = [make_relational_obj(k, val)]
+                elif val.__class__ == list:
+                    if val:
+                        if not [i for i in val if i is not None]:
                             continue
-                        v = [
+                        val = [
                             i if i.__class__ == dict else {"value": i}
-                            for i in v
+                            for i in val
                         ]
                         collectiondict[k] = [
-                            make_relational_obj(k, i) for i in v
+                            make_relational_obj(k, i) for i in val
                         ]
-                elif v is None:
+                elif val is None:
                     continue
                 else:
-                    pre_ormobjc[k] = v
+                    pre_ormobjc[k] = val
+            logger.debug('%s', str(pre_ormobjc))
             if not self.quiet:
-                if self.verbose:
-                    print(pre_ormobjc)
-                else:
-                    sys.stdout.write(".")
-                    sys.stdout.flush()
+                sys.stdout.write(".")
+                sys.stdout.flush()
             if not self.simple:
                 try:
                     in_session = (
@@ -419,37 +371,39 @@ class SQLThemAll:
                         .all()
                     )
                 except BaseException:
+                    traceback.print_exc()
                     in_session = False
             else:
                 in_session = False
             if in_session:
                 ormobjc = in_session[0]
                 if collectiondict:
-                    for k, v in collectiondict.items():
+                    for k, val in collectiondict.items():
                         setattr(
                             ormobjc,
                             k.lower() + "_collection",
-                            v,
+                            val,
                         )
             else:
                 if pre_ormobjc:
                     try:
                         ormobjc = self.classes[name](**pre_ormobjc)
                     except BaseException:
+                        traceback.print_exc()
                         ormobjc = self.classes[name]()
-                        for k, v in pre_ormobjc.items():
-                            ormobjc.__setattr__(k, v)
+                        for k, val in pre_ormobjc.items():
+                            ormobjc.__setattr__(k, val)
 
                     self.session.add(ormobjc)
                     if collectiondict:
-                        for k in collectiondict:
+                        for k, val in collectiondict.items():
                             setattr(
                                 ormobjc,
                                 k.lower() + "_collection",
-                                collectiondict[k],
+                                val,
                             )
                 else:
-                    ormobjc = None
+                    return None
 
             return ormobjc
 
