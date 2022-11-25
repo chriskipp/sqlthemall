@@ -5,17 +5,16 @@ Python file to be called from the command line programm
 
 import argparse
 import sys
+import traceback
 
 import requests
 import ujson as json
 
 import sqlthemall.json_importer as sta
-import traceback
 
 
 def main():
-    """main function
-    """
+    """main function"""
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "-d",
@@ -172,7 +171,7 @@ def main():
 
                     try:
                         obj = {importer.root_table: lines}
-                        #print(str(len(lines)), json.dumps(obj)[:100])
+                        # print(str(len(lines)), json.dumps(obj)[:100])
                         importer.create_schema(jsonobj=obj)
                         if not args.noimport:
                             importer.insert_data_to_schema(jsonobj=obj)
@@ -181,7 +180,7 @@ def main():
                         for line in lines:
                             try:
                                 obj = {importer.root_table: [line]}
-                                #print(str(len([line])), json.dumps(obj)[:100])
+                                # print(str(len([line])), json.dumps(obj)[:100])
                                 importer.create_schema(jsonobj=obj)
                                 if not args.noimport:
                                     importer.insert_data_to_schema(jsonobj=obj)

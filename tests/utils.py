@@ -3,70 +3,99 @@
 from sqlalchemy.orm.collections import InstrumentedList
 
 
-def dbobj2obj(o, parent_class=None):
-    o2 = {}
-    for k, v in o.__dict__.items():
+def dbobj2obj(dbobj, parent_class=None):
+    """
+    Converts a sqlalchemy.orm object to a python dictionary
+    mapping all defined columns to key/value pairs.
+
+    Attributes:
+        dbobj: Sqlalchemy ORM object.
+        parent_class (type): Type of the parent_class of the object.
+    """
+    obj2 = {}
+    for k, v in dbobj.__dict__.items():
         if k not in {"_sa_instance_state", "_id"} and not k.endswith("_id"):
             if v.__class__ in {str, int, float, bool}:
-                o2[k.lower()] = v
+                obj2[k.lower()] = v
             elif v.__class__ == InstrumentedList:
                 if v:
                     if v[0].__class__ != parent_class:
-                        o2[k.lower().replace("_collection", "")] = [
-                            dbobj2obj(i, parent_class=o.__class__) for i in v
+                        obj2[k.lower().replace("_collection", "")] = [
+                            dbobj2obj(i, parent_class=dbobj.__class__)
+                            for i in v
                         ]
-    o3 = {k: o2[k] for k in sorted(o2.keys())}
-    if "value" in o3.keys():
-        return o3["value"]
-    else:
-        return o3
+    obj3 = {k: obj2[k] for k in sorted(obj2.keys())}
+    if "value" in obj3.keys():
+        return obj3["value"]
+    return obj3
 
 
-def compare_obj(o1, o2):
+def compare_obj(obj1, obj2):
+    """
+    Compares two objects recursively. To be validated as equal
+    all keys and values of the object itself as well as of
+    subobjects arrays ect. must be equal.
+
+    Attributes:
+        obj1 (dict): A python object.
+        obj2 (dict): A python object to be compared with.
+    """
+
     def normalize(o):
-        o2, o3 = {}, {}
+        """
+        Normalizes the provided object.
+
+        Attributes:
+            o (dict): A python object to normalize.
+        """
+        obj2, obj3 = {}, {}
         for k in o.keys():
-            o2[k.lower()] = o[k]
-        for k in sorted(o2.keys()):
-            o3[k] = o2[k]
-        return o3
+            obj2[k.lower()] = o[k]
+        for k in sorted(obj2.keys()):
+            obj3[k] = obj2[k]
+        return obj3
 
-    def compare_val(v1, v2):
-        if v1.__class__ in {str, int, float, bool}:
-            if v1 != v2:
+    def compare_val(val1, val2):
+        """
+        Compares two values provided.
+
+        Attributes:
+            val1: A python object.
+            val2: A python object to be compared.
+        """
+        if val1.__class__ in {str, int, float, bool}:
+            if val1 != val2:
                 return False
-        elif v1.__class__ == dict and v2.__class__ == dict:
-            v1, v2 = normalize(v1), normalize(v2)
-            if not compare_obj(v1, v2):
+        elif val1.__class__ == dict and val2.__class__ == dict:
+            val1, val2 = normalize(val1), normalize(val2)
+            if not compare_obj(val1, val2):
                 return False
-        elif {v1.__class__, v2.__class__} == {dict, list}:
-            if v1.__class__ == list and len(v1) == 1:
-                v1 = v1[0]
-            elif v2.__class__ == list and len(v2) == 1:
-                v2 = v2[0]
-            v1, v2 = normalize(v1), normalize(v2)
-            if not compare_obj(v1, v2):
+        elif {val1.__class__, val2.__class__} == {dict, list}:
+            if val1.__class__ == list and len(val1) == 1:
+                val1 = val1[0]
+            elif val2.__class__ == list and len(val2) == 1:
+                val2 = val2[0]
+            val1, val2 = normalize(val1), normalize(val2)
+            if not compare_obj(val1, val2):
                 return False
-        elif v1.__class__ == list and v2.__class__ == list:
-            for sv1, sv2 in zip(v1, v2):
-                if not compare_val(sv1, sv2):
+        elif val1.__class__ == list and val2.__class__ == list:
+            for sval1, sval2 in zip(val1, val2):
+                if not compare_val(sval1, sval2):
                     return False
         return True
 
-    if o1.__class__ == dict and o2.__class__ == dict:
-        o1, o2 = normalize(o1), normalize(o2)
+    if obj1.__class__ == dict and obj2.__class__ == dict:
+        obj1, obj2 = normalize(obj1), normalize(obj2)
 
-        for k in o1.keys():
-            if o1[k].__class__ == list and o2[k].__class__ == list:
-                for i in range(len(o1[k])):
-                    if not compare_val(o1[k][i], o2[k][i]):
+        for k in obj1:
+            if obj1[k].__class__ == list and obj2[k].__class__ == list:
+                for i in range(len(obj1[k])):
+                    if not compare_val(obj1[k][i], obj2[k][i]):
                         return False
-            else:
-                if not compare_val(o1[k], o2[k]):
-                    return False
+            if not compare_val(obj1[k], obj2[k]):
+                return False
         return True
 
-    else:
-        if not compare_val(o1, o2):
-            return False
+    if not compare_val(obj1, obj2):
+        return False
     return True
