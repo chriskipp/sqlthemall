@@ -10,6 +10,7 @@ import requests
 import ujson as json
 
 import sqlthemall.json_importer as sta
+import traceback
 
 
 def main():
@@ -154,14 +155,37 @@ def main():
                     importer.insert_data_to_schema(jsonobj=obj)
 
             else:
+                N = 100
                 while True:
-                    line = sys.stdin.readline()
-                    if not line:
+                    lines = []
+                    for n in range(N):
+                        line = sys.stdin.readline()
+                        if not line:
+                            break
+                        try:
+                            lines.append(json.loads(line.strip()))
+                        except json.JSONDecodeError:
+                            traceback.print_exc()
+                            continue
+                    if not lines:
                         break
-                    obj = {importer.root_table: json.loads(line.strip())}
-                    importer.create_schema(jsonobj=obj)
-                    if not args.noimport:
-                        importer.insert_data_to_schema(jsonobj=obj)
+                    try:
+                        obj = {importer.root_table: lines}
+                        #print(str(len(lines)), json.dumps(obj)[:100])
+                        importer.create_schema(jsonobj=obj)
+                        if not args.noimport:
+                            importer.insert_data_to_schema(jsonobj=obj)
+                    except Exception:
+                        traceback.print_exc()
+                        for line in lines:
+                            try:
+                                obj = {importer.root_table: [line]}
+                                #print(str(len([line])), json.dumps(obj)[:100])
+                                importer.create_schema(jsonobj=obj)
+                                if not args.noimport:
+                                    importer.insert_data_to_schema(jsonobj=obj)
+                            except Exception:
+                                traceback.print_exc()
 
 
 if __name__ == "__main__":
