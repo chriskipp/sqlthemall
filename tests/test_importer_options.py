@@ -37,7 +37,7 @@ def test_importer_root_table(root_table):
         root_table = "main"
     else:
         importer = SQLThemAll(root_table=root_table)
-    assert importer.root_table == str(root_table)
+    assert importer.root_table == str(root_table).lower()
 
 
 @pytest.mark.parametrize("quiet", [None, True, False])

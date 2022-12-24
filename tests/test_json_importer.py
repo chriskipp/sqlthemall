@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
-import json
 from pathlib import Path
 
 import pytest
+import ujson as json
 from sqlalchemy.orm import Session
 
 from sqlthemall.json_importer import SQLThemAll

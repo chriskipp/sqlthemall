@@ -63,8 +63,11 @@ def compare_obj(obj1, obj2):
             val1: A python object.
             val2: A python object to be compared.
         """
-        if val1.__class__ in {str, int, float, bool}:
+        if val1.__class__ in {str, int, float}:
             if val1 != val2:
+                return False
+        elif val1.__class__ == bool:
+            if val1 != bool(val2):
                 return False
         elif val1.__class__ == dict and val2.__class__ == dict:
             val1, val2 = normalize(val1), normalize(val2)

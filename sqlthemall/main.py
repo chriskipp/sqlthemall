@@ -12,9 +12,7 @@ import ujson as json
 
 import sqlthemall.json_importer as sta
 
-
-def main():
-    """main function"""
+def parse_args(args):
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "-d",
@@ -83,8 +81,20 @@ def main():
         action="store_true",
         help="Processes objects in JSONline mode in sequential order",
     )
+    parser.add_argument(
+        "-N",
+        "--batch_size",
+        action="store_true",
+        dest="batch_size",
+        default=100,
+        help="Number of objects processed per commit in JSONline mode",
+    )
 
-    args = parser.parse_args(sys.argv[1:])
+    return parser.parse_args(args)
+
+def main():
+    """main function"""
+    args = parse_args(sys.argv[1:])
 
     if not args.root_table:
         args.root_table = ["main"]
@@ -105,21 +115,19 @@ def main():
             obj = res.json()
         elif args.file:
             with open(args.file[0], encoding="utf-8") as f:
-                jsonstr = f.read()
-            jsonstr = jsonstr.strip()
+                jsonstr = f.read().strip()
             if not jsonstr:
                 sys.stderr.write("Can not parse JSON from empty string!\n")
-                sys.exit()
+                sys.exit(1)
             try:
                 obj = json.loads(jsonstr)
             except json.JSONDecodeError as e:
                 sys.stderr.write("Can not parse JSON string!\n")
                 sys.stderr.write(str(e) + "\n")
                 sys.stderr.write(str(jsonstr) + "\n")
-                sys.exit()
+                sys.exit(1)
         else:
-            jsonstr = sys.stdin.read()
-            jsonstr = jsonstr.strip()
+            jsonstr = sys.stdin.read().strip()
             if not jsonstr:
                 sys.stderr.write("Can not parse JSON from empty string!\n")
                 sys.exit()
@@ -129,7 +137,7 @@ def main():
                 sys.stderr.write("Can not parse JSON string!\n")
                 sys.stderr.write(str(e) + "\n")
                 sys.stderr.write(str(jsonstr) + "\n")
-                sys.exit()
+                sys.exit(1)
 
         if obj.__class__ == list:
             obj = {args.root_table[0]: obj}
@@ -144,20 +152,19 @@ def main():
             objs = [json.loads(line) for line in res.text.splitlines()]
         elif args.file:
             with open(args.file[0], encoding="utf-8") as f:
-                objs = [json.loads(line) for line in f.readlines()]
+                objs = [json.loads(line.strip()) for line in f.readlines()]
         else:
             if not args.sequential:
-                objs = [json.loads(line) for line in sys.stdin.readlines()]
+                objs = [json.loads(line.strip()) for line in sys.stdin.readlines()]
                 obj = {importer.root_table: objs}
                 importer.create_schema(jsonobj=obj)
                 if not args.noimport:
                     importer.insert_data_to_schema(jsonobj=obj)
 
             else:
-                N = 100
                 while True:
                     lines = []
-                    for n in range(N):
+                    for n in range(args.batch_size[0]):
                         line = sys.stdin.readline()
                         if not line:
                             break
@@ -171,20 +178,18 @@ def main():
 
                     try:
                         obj = {importer.root_table: lines}
-                        # print(str(len(lines)), json.dumps(obj)[:100])
                         importer.create_schema(jsonobj=obj)
                         if not args.noimport:
                             importer.insert_data_to_schema(jsonobj=obj)
-                    except Exception:
+                    except BaseException:
                         traceback.print_exc()
                         for line in lines:
                             try:
                                 obj = {importer.root_table: [line]}
-                                # print(str(len([line])), json.dumps(obj)[:100])
                                 importer.create_schema(jsonobj=obj)
                                 if not args.noimport:
                                     importer.insert_data_to_schema(jsonobj=obj)
-                            except Exception:
+                            except BaseException:
                                 traceback.print_exc()
 
 

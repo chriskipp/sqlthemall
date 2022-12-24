@@ -85,7 +85,7 @@ class SQLThemAll:
             self.quiet = True
         self.simple = simple
         self.autocommit = autocommit
-        self.root_table = str(root_table)
+        self.root_table = str(root_table).lower()
 
         self.engine = create_engine(self.dburl, echo=self.echo)
         self.metadata = MetaData(bind=self.engine)
@@ -425,6 +425,8 @@ class SQLThemAll:
             """
             name = name.lower()
             pre_ormobjc, collectiondict = {}, {}
+            if objc.__class__ != dict:
+                return None
             if "_id" in objc:
                 objc["id"] = objc.pop("_id")
             for k, val in objc.items():
