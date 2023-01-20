@@ -133,7 +133,7 @@ def parse_args(args: list[str]) -> argparse.Namespace:
         nargs=1,
         type=int,
         dest="batch_size",
-        default=100,
+        default=[100],
         help="Number of objects processed per commit in JSONline mode",
     )
 
