@@ -3,7 +3,11 @@
 from pathlib import Path
 
 import pytest
-import ujson as json
+try:
+    import ujson as json
+except ImportError:
+    import json  # type: ignore
+
 from sqlalchemy.orm import Session
 
 from sqlthemall.json_importer import SQLThemAll

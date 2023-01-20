@@ -1,18 +1,54 @@
 #!/usr/bin/env python3
-"""
-Python file to be called from the command line programm
-"""
+"""Python file to be called from the command line programm."""
 
 import argparse
 import sys
 import traceback
+import urllib.request
+from urllib.error import URLError
 
-import requests
-import ujson as json
+try:
+    import ujson as json
+except ImportError:
+    import json  # type: ignore
 
-import sqlthemall.json_importer as sta
+from typing import Optional, TypeVar
 
-def parse_args(args):
+from sqlthemall.json_importer import SQLThemAll
+
+str_or_bytes = TypeVar("str_or_bytes", str, bytes)
+dict_or_list = TypeVar("dict_or_list", dict, list)
+
+
+def parse_json(jsonstr: str_or_bytes) -> Optional[dict_or_list]:
+    """
+    Parses JSON from a string or bytes object and returns a python object.
+
+    Parameters:
+        jsonstr (str_or_bytes): String or bytes to parse JSON from.
+
+    Returns:
+        dict or list: Parsed JSON input.
+    """
+    try:
+        if not jsonstr:
+            return None
+        return json.loads(jsonstr)
+    except json.JSONDecodeError:
+        traceback.print_exc()
+        return None
+
+
+def parse_args(args: list[str]) -> argparse.Namespace:
+    """
+    Parses the provided list of args.
+
+    Args:
+        args (list[str]): List of arguments to parse.
+
+    Returns:
+        argparse.Namespace: Namespace the arguments have been read in.
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "-d",
@@ -51,10 +87,20 @@ def parse_args(args):
         help="Opens database in autocommit mode",
     )
     parser.add_argument(
-        "-v", "--verbose", action="store_true", help="Print verbose output"
+        "-L",
+        "--loglevel",
+        choices=("ERROR", "WARNING", "INFO", "DEBUG"),
+        default=["INFO"],
+        help="Set the log level",
+        nargs=1,
+        dest="loglevel",
     )
     parser.add_argument(
-        "-q", "--quiet", action="store_true", help="Don't print output"
+        "-p",
+        "--no_progress",
+        action="store_true",
+        default=False,
+        help="Do not print progress while importing",
     )
     parser.add_argument(
         "-e",
@@ -67,7 +113,7 @@ def parse_args(args):
         "--root-table",
         nargs=1,
         dest="root_table",
-        help="Name of the table to import the outermost subobjects if JSON object is a array",
+        help="Name of the root table to import the root of the JSON object in.",
     )
     parser.add_argument(
         "-l",
@@ -84,7 +130,8 @@ def parse_args(args):
     parser.add_argument(
         "-N",
         "--batch_size",
-        action="store_true",
+        nargs=1,
+        type=int,
         dest="batch_size",
         default=100,
         help="Number of objects processed per commit in JSONline mode",
@@ -92,17 +139,18 @@ def parse_args(args):
 
     return parser.parse_args(args)
 
-def main():
-    """main function"""
+
+def main() -> None:
+    """Main function."""
     args = parse_args(sys.argv[1:])
 
     if not args.root_table:
         args.root_table = ["main"]
 
-    importer = sta.SQLThemAll(
+    importer = SQLThemAll(
         dburl=args.dburl[0],
-        quiet=args.quiet,
-        verbose=args.verbose,
+        loglevel=args.loglevel[0],
+        progress=not args.no_progress,
         autocommit=args.autocommit,
         simple=args.simple,
         root_table=args.root_table[0],
@@ -111,51 +159,49 @@ def main():
 
     if not args.line:
         if args.url:
-            res = requests.get(args.url[0], timeout=300)
-            obj = res.json()
+            try:
+                if args.url[0].startswith("http"):
+                    with urllib.request.urlopen(
+                        args.url[0], timeout=300
+                    ) as res:
+                        jsonstr = res.read()
+            except URLError:
+                traceback.print_exc()
+                sys.exit(3)
         elif args.file:
             with open(args.file[0], encoding="utf-8") as f:
                 jsonstr = f.read().strip()
-            if not jsonstr:
-                sys.stderr.write("Can not parse JSON from empty string!\n")
-                sys.exit(1)
-            try:
-                obj = json.loads(jsonstr)
-            except json.JSONDecodeError as e:
-                sys.stderr.write("Can not parse JSON string!\n")
-                sys.stderr.write(str(e) + "\n")
-                sys.stderr.write(str(jsonstr) + "\n")
-                sys.exit(1)
         else:
             jsonstr = sys.stdin.read().strip()
-            if not jsonstr:
-                sys.stderr.write("Can not parse JSON from empty string!\n")
-                sys.exit()
-            try:
-                obj = json.loads(jsonstr)
-            except json.JSONDecodeError as e:
-                sys.stderr.write("Can not parse JSON string!\n")
-                sys.stderr.write(str(e) + "\n")
-                sys.stderr.write(str(jsonstr) + "\n")
-                sys.exit(1)
+        obj = parse_json(jsonstr)
 
         if obj.__class__ == list:
             obj = {args.root_table[0]: obj}
 
-        importer.create_schema(jsonobj=obj)
-        if not args.noimport:
-            importer.insert_data_to_schema(jsonobj=obj)
+        if obj:
+            importer.create_schema(jsonobj=obj)
+            if not args.noimport:
+                importer.insert_data_to_schema(jsonobj=obj)
 
     elif args.line:
         if args.url:
-            res = requests.get(args.url[0], timeout=300)
-            objs = [json.loads(line) for line in res.text.splitlines()]
+            try:
+                if args.url[0].startswith("http"):
+                    with urllib.request.urlopen(
+                        args.url[0], timeout=300
+                    ) as res:  # noqa: S310
+                        objs = [parse_json(line) for line in res.readlines()]
+            except URLError:
+                traceback.print_exc()
+                sys.exit(3)
         elif args.file:
             with open(args.file[0], encoding="utf-8") as f:
                 objs = [json.loads(line.strip()) for line in f.readlines()]
         else:
             if not args.sequential:
-                objs = [json.loads(line.strip()) for line in sys.stdin.readlines()]
+                objs = [
+                    json.loads(line.strip()) for line in sys.stdin.readlines()
+                ]
                 obj = {importer.root_table: objs}
                 importer.create_schema(jsonobj=obj)
                 if not args.noimport:
@@ -163,29 +209,27 @@ def main():
 
             else:
                 while True:
-                    lines = []
+                    lines: list = []
                     for n in range(args.batch_size[0]):
                         line = sys.stdin.readline()
                         if not line:
                             break
-                        try:
-                            lines.append(json.loads(line.strip()))
-                        except json.JSONDecodeError:
-                            traceback.print_exc()
-                            continue
+                        obj = parse_json(line.strip())
+                        if obj:
+                            lines.append(obj)
                     if not lines:
                         break
 
+                    obj = {importer.root_table: lines}
                     try:
-                        obj = {importer.root_table: lines}
                         importer.create_schema(jsonobj=obj)
                         if not args.noimport:
                             importer.insert_data_to_schema(jsonobj=obj)
                     except BaseException:
                         traceback.print_exc()
-                        for line in lines:
+                        for one_line in lines:
                             try:
-                                obj = {importer.root_table: [line]}
+                                obj = {importer.root_table: [one_line]}
                                 importer.create_schema(jsonobj=obj)
                                 if not args.noimport:
                                     importer.insert_data_to_schema(jsonobj=obj)

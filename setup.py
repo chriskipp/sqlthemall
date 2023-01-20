@@ -17,7 +17,7 @@ setup(
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     ],
-    keywords="JSON sqlalchemy",
+    keywords="JSON,SQLAlchemy",
     url="http://github.com/chriskipp/sqlthemall",
     author="Christopher Kipp",
     author_email="christopher.kipp@web.de",
@@ -27,9 +27,10 @@ setup(
     install_requires=[
         "SQLalchemy >= 1.4",
         "alembic >= 1.5.8",
-        "ujson",
-        "requests",
     ],
+    extras_require={
+        "ujson": ["ujson"],
+    },
     include_package_data=True,
     zip_safe=False,
 )

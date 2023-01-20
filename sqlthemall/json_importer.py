@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
-"""
-This module contains the main importer class `SQLThemAll`.
-"""
+"""This module contains the main importer class `SQLThemAll`."""
 
 import datetime
 import logging
 import sys
 import traceback
 from collections.abc import Iterable
-from typing import Optional, Set
+from typing import Optional, TypeVar
 
 import alembic
 from sqlalchemy import (Boolean, Column, Date, Float, ForeignKey, Integer,
@@ -17,31 +15,40 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import Session
 
-# create logger
-logger = logging.getLogger("json_importer")
-# logger.setLevel(logging.DEBUG)
-logger.setLevel(logging.INFO)
+tuple_or_set = TypeVar("tuple_or_set", tuple, set)
 
-# create console handler and set level to debug
-ch = logging.StreamHandler()
-ch.setLevel(logging.DEBUG)
-# ch.setLevel(logger.info)
 
-# create formatter
-formatter = logging.Formatter(
-    "%(asctime)s - [%(name)s] - %(levelname)s - %(message)s"
-)
+def create_logger(name: str, loglevel: str = "INFO") -> logging.Logger:
+    """
+    Initialises the default logger with given loglevel.
 
-# add formatter to ch
-ch.setFormatter(formatter)
+    Args:
+        name (str): Name of the logger.
+        loglevel (str): Log level to use (default "INFO").
 
-# add ch to logger
-logger.addHandler(ch)
+    Returns:
+        logger: The initialized logger.
+    """
+    logger = logging.getLogger("json_importer")
+    logger.setLevel(loglevel)
+
+    ch = logging.StreamHandler()
+    ch.setLevel(loglevel)
+
+    formatter = logging.Formatter(
+        "%(asctime)s - [%(name)s] - %(levelname)s - %(message)s"
+    )
+    ch.setFormatter(formatter)
+
+    logger.addHandler(ch)
+
+    return logger
 
 
 class SQLThemAll:
     """
-    Class that provides the creationion of relational Database schemata
+    Class that provides the creationion of relational Database schemata.
+
     from the structure of JSON as well as the import of the provided
     JSON data.
 
@@ -56,12 +63,14 @@ class SQLThemAll:
     connection: Optional[Engine] = None
     schema_changed: bool = False
     session = None
+    loglevel: str = "INFO"
+    progress: bool = True
 
     def __init__(
         self,
         dburl: str = "sqlite://",
-        quiet: bool = True,
-        verbose: bool = False,
+        progress: bool = True,
+        loglevel: str = "INFO",
         simple: bool = False,
         autocommit: bool = False,
         root_table="main",
@@ -70,25 +79,28 @@ class SQLThemAll:
         """
         The contructor for SQLThemAll class.
 
-        Parameters:
-            dburi (str): Database URI.
-            root_table (str): The name of the table to import the JSON root.
+        Args:
+            dburl (str): Database URI.
+            progress (bool): Show import progress.
+            loglevel (str): Set loglevel - one of "ERROR", "WARNING", "INFO", "DEBUG"(default "INFO")
             simple (bool): Create a simplified database schema.
             autocommit (bool): Open the database in autocommit mode.
+            root_table (str): The name of the table to import the JSON root.
             echo (bool): Echo the executed SQL statements.
         """
         self.dburl = dburl
-        self.quiet = quiet
-        self.verbose = verbose
+        self.progress = progress
+        self.loglevel = loglevel
+        self._logger = create_logger("sqlthemall", self.loglevel)
         self.echo = echo
         if self.echo:
-            self.quiet = True
+            self.progress = False
         self.simple = simple
         self.autocommit = autocommit
         self.root_table = str(root_table).lower()
 
         self.engine = create_engine(self.dburl, echo=self.echo)
-        self.metadata = MetaData(bind=self.engine)
+        self.metadata = MetaData()
         self.metadata.reflect(
             self.engine, extend_existing=True, autoload_replace=True
         )
@@ -96,19 +108,20 @@ class SQLThemAll:
         self.base.prepare(self.engine, reflect=True)
         self.classes = self.base.classes
 
-    def create_many_to_one(self, k: str, current_table: Table) -> Table:
+    def create_many_to_one(self, name: str, current_table: Table) -> Table:
         """
         Adds a many to one relationship to the schema.
 
-        Parameters:
+        Args:
             name (str): New table name.
             current_table (Table): Current Table.
+
         Returns:
-            Newly created Table schema.
+            Table: Newly created Table.
         """
-        logger.info("Creating table %s", k)
+        self._logger.info("Creating table %s", name)
         return Table(
-            k,
+            name,
             self.metadata,
             Column("_id", Integer, primary_key=True),
             Column(
@@ -118,45 +131,47 @@ class SQLThemAll:
             extend_existing=True,
         )
 
-    def create_many_to_many(self, k: str, current_table: Table) -> Table:
+    def create_many_to_many(self, name: str, current_table: Table) -> Table:
         """
         Adds a many to many relationship to the schema.
 
-        Parameters:
+        Args:
             name (str): New table name.
             current_table (Table): Current Table.
+
         Returns:
-            Newly created Table schema.
+            Table: Newly created Table.
         """
-        logger.info("Creating table %s", k)
-        logger.info("Creating bridge %s - %s", current_table.name, k)
+        self._logger.info("Creating table %s", name)
+        self._logger.info("Creating bridge %s - %s", current_table.name, name)
         Table(
-            "bridge_" + current_table.name + "_" + k,
+            "bridge_" + current_table.name + "_" + name,
             self.metadata,
             Column(
                 current_table.name + "_id",
                 ForeignKey(current_table.name + "._id"),
             ),
-            Column(k + "_id", ForeignKey(k + "._id")),
+            Column(name + "_id", ForeignKey(name + "._id")),
             extend_existing=True,
         )
         return Table(
-            k, self.metadata, Column("_id", Integer, primary_key=True)
+            name, self.metadata, Column("_id", Integer, primary_key=True)
         )
 
-    def create_one_to_one(self, k: str, current_table: Table) -> Table:
+    def create_one_to_one(self, name: str, current_table: Table) -> Table:
         """
         Adds a one to one relationship to the schema.
 
-        Parameters:
+        Args:
             name (str): New table name.
             current_table (Table): Current Table.
+
         Returns:
-            Newly created Table schema.
+            Table: Newly created Table.
         """
-        logger.info("Creating table %s", k)
+        self._logger.info("Creating table %s", name)
         return Table(
-            k,
+            name,
             self.metadata,
             Column("_id", Integer, primary_key=True),
             Column(
@@ -166,19 +181,20 @@ class SQLThemAll:
             extend_existing=True,
         )
 
-    def create_one_to_many(self, k: str, current_table: Table) -> Table:
+    def create_one_to_many(self, name: str, current_table: Table) -> Table:
         """
         Adds a one to many relationship to the schema.
 
-        Parameters:
+        Args:
             name (str): New table name.
             current_table (Table): Current Table.
+
         Returns:
-            Newly created Table schema.
+            Table: Newly created Table.
         """
-        logger.info("Creating table %s", k)
+        self._logger.info("Creating table %s", name)
         return Table(
-            k,
+            name,
             self.metadata,
             Column("_id", Integer, primary_key=True),
             Column(
@@ -194,7 +210,7 @@ class SQLThemAll:
         """
         Creates table_schema from the structure of a given JSON object.
 
-        Parameters:
+        Args:
             jsonobj (dict): jsonobj.
             root_table (str): Table name of the JSON object root.
             simple (bool): Create a simple database schema.
@@ -231,23 +247,24 @@ class SQLThemAll:
             obj: dict,
             current_table: Table = current_table,
             simple: bool = simple,
-            exclude_props: Set = set(),
+            exclude_props: set = None,
         ) -> None:
             """
             Creates table_schema from the structure of a given JSON object.
 
-            Parameters:
+            Args:
                 obj (dict): Object to parse.
                 current_table (Table) : The current_table.
                 simple (bool): Create a simple database schema.
-                exclude_props(Set): Column names to ignore
+                exclude_props : Column names to ignore
+                #exclude_props (set): Column names to ignore
             """
             if current_table.name in self.base.classes:
                 cls = self.base.classes[current_table.name]
                 props = set(cls.__dict__.keys())
             else:
                 props = set()
-            logger.debug("Forbinden col names: %s", props)
+            self._logger.debug("Forbinden col names: %s", props)
 
             if obj.__class__ == dict:
                 if "_id" in obj:
@@ -270,12 +287,12 @@ class SQLThemAll:
                                 self.schema_changed = True
                                 if not simple:
                                     tbl = self.create_many_to_one(
-                                        k=k, current_table=current_table
+                                        name=k, current_table=current_table
                                     )
                                     tbl.create(self.engine)
                                 else:
                                     tbl = self.create_one_to_one(
-                                        k=k, current_table=current_table
+                                        name=k, current_table=current_table
                                     )
                                     tbl.create(self.engine)
                             else:
@@ -305,7 +322,7 @@ class SQLThemAll:
                                             ),
                                         )
                         else:
-                            logger.debug(
+                            self._logger.debug(
                                 "%s already exists in table %s",
                                 k,
                                 current_table.name,
@@ -313,7 +330,7 @@ class SQLThemAll:
                             continue
                     else:
                         if k in props:
-                            logger.info("Excluded Prop: %s", k)
+                            self._logger.info("Excluded Prop: %s", k)
                             continue
                         self.schema_changed = True
                         col_types = {
@@ -331,7 +348,7 @@ class SQLThemAll:
                                 current_table.name,
                                 Column(k, col_types[val.__class__]()),
                             ).execute(self.engine)
-                            logger.info(
+                            self._logger.info(
                                 "adding col %s to table %s",
                                 k,
                                 current_table.name,
@@ -340,12 +357,12 @@ class SQLThemAll:
                             if k not in self.metadata.tables:
                                 if not simple:
                                     tbl = self.create_many_to_one(
-                                        k=k, current_table=current_table
+                                        name=k, current_table=current_table
                                     )
                                     tbl.create(self.engine)
                                 else:
                                     tbl = self.create_one_to_one(
-                                        k=k, current_table=current_table
+                                        name=k, current_table=current_table
                                     )
                                     tbl.create(self.engine)
                             else:
@@ -361,9 +378,9 @@ class SQLThemAll:
                                 if not [i for i in val if i]:
                                     continue
                                 val = [
-                                    item
-                                    if item.__class__ == dict
-                                    else {"value": item}
+                                    item.__class__ == dict
+                                    and item
+                                    or {"value": item}
                                     for item in val
                                 ]
                                 val = [i for i in val if i]
@@ -372,13 +389,13 @@ class SQLThemAll:
                                         self.schema_changed = True
                                         if not simple:
                                             tbl = self.create_many_to_many(
-                                                k=k,
+                                                name=k,
                                                 current_table=current_table,
                                             )
                                             tbl.create(self.engine)
                                         else:
                                             tbl = self.create_one_to_many(
-                                                k=k,
+                                                name=k,
                                                 current_table=current_table,
                                             )
                                             tbl.create(self.engine)
@@ -406,22 +423,27 @@ class SQLThemAll:
 
     def insert_data_to_schema(self, jsonobj: dict) -> None:
         """
-        Inserts the given JSON object into the database creating
+        Inserts the given JSON object into the database creating.
+
         the schema if not availible.
 
-        Parameters:
+        Args:
             jsonobj (dict): Object to parse.
         """
 
         def make_relational_obj(name, objc, session: Session):
             """
-            Generates a relational object which is insertable from
+            Generates a relational object which is insertable from.
+
             a given JSON object.
 
-            Parameters:
+            Args:
                 name (str): Name of the table that will represent the object.
                 objc (dict): Object to parse.
                 session (Session): Session to use.
+
+            Returns:
+                ormobject: Object defined by the object relational model.
             """
             name = name.lower()
             pre_ormobjc, collectiondict = {}, {}
@@ -431,9 +453,6 @@ class SQLThemAll:
                 objc["id"] = objc.pop("_id")
             for k, val in objc.items():
                 k = k.lower()
-                # if k not in {c.name for c in self.metadata.tables[name].columns}:
-                #    logger.info('Cols: %s', {c.name for c in self.metadata.tables[name].columns})
-                #    continue
                 if val.__class__ in {dict, list}:
                     if val.__class__ == dict:
                         _collection = [
@@ -448,9 +467,9 @@ class SQLThemAll:
                     elif val.__class__ == list:
                         if val:
                             val = [
-                                i
-                                if i.__class__ == dict and i or i is None
-                                else {"value": i}
+                                (i.__class__ == dict or i is None)
+                                and i
+                                or {"value": i}
                                 for i in val
                             ]
                             _collection = [
@@ -470,16 +489,13 @@ class SQLThemAll:
                     pre_ormobjc[k] = val
             if not pre_ormobjc:
                 return None
-            if not self.quiet:
+            if self.progress:
                 sys.stdout.write(".")
                 sys.stdout.flush()
-            logger.debug("%s", pre_ormobjc)
+            self._logger.debug("%s", pre_ormobjc)
             if not self.simple:
-                in_session = (
-                    session.query(self.base.classes[name])
-                    .filter_by(**pre_ormobjc)
-                    .first()
-                )
+                query = session.query(self.base.classes[name])
+                in_session = query.filter_by(**pre_ormobjc).first()
             else:
                 in_session = False
 
@@ -495,23 +511,18 @@ class SQLThemAll:
                             )
             else:
                 ormobjc = self.base.classes[name](**pre_ormobjc)
-                # ormobjc = self.base.classes[name]()
-                # for k, val in pre_ormobjc.items():
-                #    if k in ormobjc.__dict__:
-                #        ormobjc.__setattr__(k, val)
-                if True:
 
-                    if collectiondict:
-                        for k, val in collectiondict.items():
-                            setattr(
-                                ormobjc,
-                                k.lower() + "_collection",
-                                val,
-                            )
+                if collectiondict:
+                    for k, val in collectiondict.items():
+                        setattr(
+                            ormobjc,
+                            k.lower() + "_collection",
+                            val,
+                        )
 
                 if ormobjc:
                     session.add(ormobjc)
-                    logger.debug("Adding %s to session", name)
+                    self._logger.debug("Adding %s to session", name)
                 else:
                     return None
 
@@ -524,7 +535,7 @@ class SQLThemAll:
             make_relational_obj(
                 name=self.root_table, objc=jsonobj, session=session
             )
-            if not self.quiet:
+            if self.progress:
                 sys.stdout.write("\n")
             try:
                 session.commit()
@@ -534,10 +545,11 @@ class SQLThemAll:
 
     def import_json(self, jsonobj: dict) -> None:
         """
-        Inserts the given JSON object into the database creating
+        Inserts the given JSON object into the database creating.
+
         the schema if not availible.
 
-        Parameters:
+        Args:
             jsonobj (dict): Object to parse.
         """
         if not self.connection or self.connection.closed:
@@ -555,11 +567,12 @@ class SQLThemAll:
 
     def import_multi_json(self, jsonobjs: Iterable) -> None:
         """
-        Inserts Array of JSON objects into the database creating
+        Inserts Array of JSON objects into the database creating.
+
         the schema if not availible.
 
-        Parameters:
-            jsonobjs (dict): Object to parse.
+        Args:
+            jsonobjs (Iterable): Object to parse.
         """
         if not self.connection or self.connection.closed:
             self.connection = self.engine.connect()

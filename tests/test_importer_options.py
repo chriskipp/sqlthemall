@@ -40,36 +40,36 @@ def test_importer_root_table(root_table):
     assert importer.root_table == str(root_table).lower()
 
 
-@pytest.mark.parametrize("quiet", [None, True, False])
-def test_importer_quiet(quiet):
+@pytest.mark.parametrize("progress", [None, True, False])
+def test_importer_progress(progress):
     """
-    Tests various values of the quiet option.
+    Tests various values of the progress option.
 
     Attributes:
-        quiet (obj): Value of the quiet option.
+        progress (obj): Value of the progress option.
     """
-    if quiet is None:
+    if progress is None:
         importer = SQLThemAll()
-        quiet = True
+        progress = True
     else:
-        importer = SQLThemAll(quiet=quiet)
-    assert importer.quiet == quiet
+        importer = SQLThemAll(progress=progress)
+    assert importer.progress == progress
 
 
-@pytest.mark.parametrize("verbose", [None, True, False])
-def test_importer_verbose(verbose):
+@pytest.mark.parametrize("loglevel", [None, True, False, "INFO", "DEBUG", "WARNING", "ERROR"])
+def test_importer_loglevel(loglevel):
     """
-    Tests various values of the verbose option.
+    Tests various values of the loglevel option.
 
     Attributes:
-        verbose (obj): Value of the verbose option.
+        loglevel (obj): Value of the loglevel option.
     """
-    if verbose is None:
+    if not loglevel:
         importer = SQLThemAll()
-        verbose = False
+        loglevel = "INFO"
     else:
-        importer = SQLThemAll(verbose=verbose)
-    assert importer.verbose == verbose
+        importer = SQLThemAll(loglevel=loglevel)
+    assert importer.loglevel == loglevel
 
 
 @pytest.mark.parametrize("simple", [None, True, False])

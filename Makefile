@@ -1,28 +1,43 @@
-# Some simple testing tasks (sorry, UNIX only).
+# Makefile
 
-FLAGS=
+PYTHON = python3
+SOURCEDIR = sqlthemall
 
 
-black: clean
-	black --line-length 79 --safe .
+black:
+	black --line-length 79 --safe $(SOURCEDIR)
 
-flake:
-	autoflake -v -v --in-place --recursive --remove-all-unused-imports --ignore-init-module-imports .
+autoflake:
+	autoflake -v -v --in-place --recursive --remove-all-unused-imports --ignore-init-module-imports $(SOURCEDIR)
 
 isort:
-	isort .
+	isort $(SOURCEDIR)
 
 mypy:
-	mypy --install-types --non-interactive --ignore-missing-imports --exclude setup.py .
+	mypy --install-types --non-interactive --ignore-missing-imports --exclude setup.py $(SOURCEDIR)
 
-lint: black flake isort mypy
+pdocstr:
+	pydocstringformatter --linewrap-full-docstring --write  --max-line-length 79 $(SOURCEDIR)
 
-#.PHONY: flake isort black clean clean_up  #test
+flake:
+	flake8 --statistics --show-source --ignore S310 --requirements-file requirements.txt $(SOURCEDIR)
+
+pylint:
+	pylint --rcfile .pylintrc $(SOURCEDIR)
+
+autolint: black isort mypy pdocstr autoflake clean
+lint: flake pylint
+
+install:
+	sh -c '. _virtualenv/bin/activate; $(PYTHON) -m pip install -e .'
 
 .PHONY: test
 
-test: _virtualenv
+test: _virtualenv install
 	sh -c '. _virtualenv/bin/activate; py.test -vvv tests'
+
+cov: _virtualenv install
+	sh -c '. _virtualenv/bin/activate; py.test --cov=sqlthemall tests'
 
 .PHONY: test-all
 
