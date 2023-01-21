@@ -29,7 +29,7 @@ def create_logger(name: str, loglevel: str = "INFO") -> logging.Logger:
     Returns:
         logger: The initialized logger.
     """
-    logger = logging.getLogger("json_importer")
+    logger = logging.getLogger(name)
     logger.setLevel(loglevel)
 
     ch = logging.StreamHandler()
