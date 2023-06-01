@@ -29,27 +29,19 @@ autolint: black isort mypy pdocstr autoflake clean
 lint: flake pylint
 
 install:
-	ifneq ($(whoami), root)
+ifeq ($(shell whoami),root)
 		$(PYTHON) setup.py install
-	else
+else
 		$(PYTHON) setup.py install --user
-	endif
-
-.PHONY: test
+endif
 
 test: bootstrap
-	sh -c '
-	. _virtualenv/bin/activate;
-	$(PYTHON) -m pip install requirements-dev.txt
-	pytest -vvv tests'
+	sh -c '. _virtualenv/bin/activate; $(PYTHON) -m pip install -r requirements-dev.txt'
+	sh -c '. _virtualenv/bin/activate; pytest -vvv tests'
 
 cov: bootstrap
-	sh -c '
-	. _virtualenv/bin/activate;
-	$(PYTHON) -m pip install requirements-dev.txt
-	pytest --cov=sqlthemall tests'
-
-.PHONY: test-all
+	sh -c '. _virtualenv/bin/activate; $(PYTHON) -m pip install -r requirements-dev.txt'
+	sh -c '. _virtualenv/bin/activate; pytest --cov=sqlthemall tests'
 
 test-all: _virtualenv
 	tox
@@ -89,12 +81,7 @@ clean:
 .PHONY: bootstrap
 
 bootstrap: _virtualenv
-	sh -c '. _virtualenv/bin/activate; python3 setup.py install'
-
-ifneq ($(wildcard requirements-dev.txt),)
-	_virtualenv/bin/pip install -r requirements.txt
-	_virtualenv/bin/pip install -r requirements-dev.txt
-endif
+	sh -c '. _virtualenv/bin/activate; $(PYTHON) setup.py install'
 
 _virtualenv:
 	python3 -m venv _virtualenv
@@ -103,5 +90,8 @@ _virtualenv:
 	_virtualenv/bin/pip install --upgrade wheel
 	_virtualenv/bin/pip install --upgrade build twine
 
-update_req: _virtualenv
-	sh -c '. _virtualenv/bin/activate; $(PYTHON)-m pip liist --outdated'
+update_req: bootstrap
+	sed 's/[<>=].*/\\s/' requirements.txt requirements-dev.txt > _requirements.txt
+	sh -c '. _virtualenv/bin/activate; ( $(PYTHON) -m pip list --outdated | grep -if _requirements.txt ) || echo "No outdated packages."'
+	rm _requirements.txt
+
