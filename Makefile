@@ -29,22 +29,30 @@ autolint: black isort mypy pdocstr autoflake clean
 lint: flake pylint
 
 install:
-	sh -c '. _virtualenv/bin/activate; $(PYTHON) -m pip install -e .'
+	ifneq ($(whoami), root)
+		$(PYTHON) setup.py install
+	else
+		$(PYTHON) setup.py install --user
+	endif
 
 .PHONY: test
 
-test: _virtualenv install
-	sh -c '. _virtualenv/bin/activate; py.test -vvv tests'
+test: bootstrap
+	sh -c '
+	. _virtualenv/bin/activate;
+	$(PYTHON) -m pip install requirements-dev.txt
+	pytest -vvv tests'
 
-cov: _virtualenv install
-	sh -c '. _virtualenv/bin/activate; py.test --cov=sqlthemall tests'
+cov: bootstrap
+	sh -c '
+	. _virtualenv/bin/activate;
+	$(PYTHON) -m pip install requirements-dev.txt
+	pytest --cov=sqlthemall tests'
 
 .PHONY: test-all
 
 test-all: _virtualenv
 	tox
-
-#.PHONY: upload
 
 #upload: test-all build-dist
 #	_virtualenv/bin/twine upload dist/*
@@ -54,8 +62,6 @@ test-all: _virtualenv
 
 build-dist: clean
 	_virtualenv/bin/pyproject-build
-
-.PHONY: clean
 
 clean:
 	rm -rf `find . -name __pycache__`
@@ -83,12 +89,12 @@ clean:
 .PHONY: bootstrap
 
 bootstrap: _virtualenv
-	_virtualenv/bin/pip install -e .
+	sh -c '. _virtualenv/bin/activate; python3 setup.py install'
+
 ifneq ($(wildcard requirements-dev.txt),)
 	_virtualenv/bin/pip install -r requirements.txt
 	_virtualenv/bin/pip install -r requirements-dev.txt
 endif
-	make clean
 
 _virtualenv:
 	python3 -m venv _virtualenv
@@ -98,7 +104,4 @@ _virtualenv:
 	_virtualenv/bin/pip install --upgrade build twine
 
 update_req: _virtualenv
-	sh -c '. _virtualenv/bin/activate; REQILE="requirements-dev.txt"; cat "${REQILE}" | xargs --max-args=1 --delimiter='\n' python3 -m pip install -U; _cat "${REQILE}" | sed -e 's/[<>=]\+.*//' -e 's/^/^/' -e 's/$/[=]/g' > "_${REQILE}"; _python3 -m pip list --format=freeze | grep -f "_${REQILE}" > "${REQILE}"'
-	sh -c '. _virtualenv/bin/activate; REQILE="requirements.txt"; cat "${REQILE}" | xargs --max-args=1 --delimiter='\n' python3 -m pip install -U; _cat "${REQILE}" | sed -e 's/[<>=]\+.*//' -e 's/^/^/' -e 's/$/[=]/g' > "_${REQILE}"; _python3 -m pip list --format=freeze | grep -f "_${REQILE}" > "${REQILE}"'
-
-
+	sh -c '. _virtualenv/bin/activate; $(PYTHON)-m pip liist --outdated'

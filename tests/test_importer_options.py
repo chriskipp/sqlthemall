@@ -102,6 +102,6 @@ def test_importer_metadata():
     """
     importer = SQLThemAll()
     engine = importer.engine
-    metadata = MetaData(bind=engine)
-    metadata.reflect()
+    metadata = MetaData()
+    metadata.reflect(bind=engine)
     assert importer.metadata.sorted_tables == metadata.sorted_tables

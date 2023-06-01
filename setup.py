@@ -25,8 +25,8 @@ setup(
     packages=["sqlthemall"],
     scripts=["bin/sqlthemall"],
     install_requires=[
-        "SQLalchemy >= 1.4",
-        "alembic >= 1.5.8",
+        "SQLalchemy == 2.0.15",
+        "alembic == 1.11.1",
     ],
     extras_require={
         "ujson": ["ujson"],

@@ -14,6 +14,7 @@ from sqlalchemy import (Boolean, Column, Date, Float, ForeignKey, Integer,
 from sqlalchemy.engine import Engine
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import Session
+from sqlalchemy.sql import text
 
 tuple_or_set = TypeVar("tuple_or_set", tuple, set)
 
@@ -105,7 +106,7 @@ class SQLThemAll:
             self.engine, extend_existing=True, autoload_replace=True
         )
         self.base = automap_base(metadata=self.metadata)
-        self.base.prepare(self.engine, reflect=True)
+        self.base.prepare(self.engine)
         self.classes = self.base.classes
 
     def create_many_to_one(self, name: str, current_table: Table) -> Table:
@@ -217,12 +218,12 @@ class SQLThemAll:
         """
         if not self.connection or self.connection.closed:
             self.connection = self.engine.connect()
-            self.metadata = MetaData(bind=self.engine)
+            self.metadata = MetaData()
             self.metadata.reflect(
                 self.engine, extend_existing=True, autoload_replace=True
             )
             self.base = automap_base(metadata=self.metadata)
-            self.base.prepare(self.engine, reflect=True)
+            self.base.prepare(self.engine)
             self.classes = self.base.classes
         if not root_table:
             root_table = self.root_table
@@ -344,10 +345,11 @@ class SQLThemAll:
                             current_table.append_column(
                                 Column(k, col_types[val.__class__]())
                             )
-                            alembic.ddl.base.AddColumn(
+                            statement = alembic.ddl.base.AddColumn(
                                 current_table.name,
                                 Column(k, col_types[val.__class__]()),
-                            ).execute(self.engine)
+                            ).compile().__str__()
+                            self.connection.execute(text(statement))
                             self._logger.info(
                                 "adding col %s to table %s",
                                 k,
@@ -417,7 +419,7 @@ class SQLThemAll:
                 self.engine, extend_existing=True, autoload_replace=True
             )
             self.base = automap_base(metadata=self.metadata)
-            self.base.prepare(self.engine, reflect=True)
+            self.base.prepare(self.engine)
             self.classes = self.base.classes
         self.schema_changed = False
 
@@ -554,12 +556,12 @@ class SQLThemAll:
         """
         if not self.connection or self.connection.closed:
             self.connection = self.engine.connect()
-            self.metadata = MetaData(bind=self.engine)
+            self.metadata = MetaData()
             self.metadata.reflect(
                 self.engine, extend_existing=True, autoload_replace=True
             )
             self.base = automap_base(metadata=self.metadata)
-            self.base.prepare(self.engine, reflect=True)
+            self.base.prepare(self.engine)
             self.classes = self.base.classes
 
         self.create_schema(jsonobj)
