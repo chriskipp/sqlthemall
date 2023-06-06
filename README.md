@@ -7,9 +7,15 @@ sqlthemall provides automatic generation of relational database schemes based on
 ### Dependencies
 
 - [SQLalchemy](https://www.sqlalchemy.org) Since sqlthemall uses to access the different databases this package is mandatory.
+- [alembic](https://github.com/sqlalchemy/alembic) To change tables that are already created.
 - [ujson](https://github.com/ultrajson/ultrajson) To speed up the parsing of JSON objects. If installed it will be used as a replacement for the `json` module of the standart library. This package is a optional dependency.
 
 ### Setup
+
+***Please make sure that you set up a virtual environment before instlling
+this package directly to your system environment. Due to breaking changes in
+the different versions of `SQLalchemy` this could effect other programms that
+might rely on other versions.***
 
 This package and all dependencies can be installed via:
 ```bash
