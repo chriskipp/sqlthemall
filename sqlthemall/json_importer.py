@@ -9,8 +9,18 @@ from collections.abc import Iterable
 from typing import Optional, Set, TypeVar
 
 import alembic
-from sqlalchemy import (Boolean, Column, Connection, Date, Float, ForeignKey,
-                        Integer, MetaData, String, Table, create_engine)
+from sqlalchemy import (
+    Boolean,
+    Column,
+    Date,
+    Float,
+    ForeignKey,
+    Integer,
+    MetaData,
+    String,
+    Table,
+    create_engine,
+)
 from sqlalchemy.engine import Engine
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import Session
@@ -437,7 +447,9 @@ class SQLThemAll:
             jsonobj (dict): Object to parse.
         """
 
-        def make_relational_obj(name, objc, session: Session, skip_empty: bool = True):
+        def make_relational_obj(
+            name, objc, session: Session, skip_empty: bool = True
+        ):
             """
             Generates a relational object which is insertable from.
 
@@ -477,12 +489,10 @@ class SQLThemAll:
                             collectiondict[k] = _collection
                     elif isinstance(val, list):
                         if val:
-                        #if True:
+                            # if True:
                             val = [
-                                #(i.__class__ == dict or i is None)
-                                i.__class__ == dict
-                                and i
-                                or {"value": i}
+                                # (i.__class__ == dict or i is None)
+                                i.__class__ == dict and i or {"value": i}
                                 for i in val
                             ]
                             _collection = [
