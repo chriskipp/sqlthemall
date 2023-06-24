@@ -41,7 +41,7 @@ test: bootstrap
 
 cov: bootstrap
 	sh -c '. _virtualenv/bin/activate; $(PYTHON) -m pip install -r requirements-dev.txt'
-	sh -c '. _virtualenv/bin/activate; pytest --cov=sqlthemall tests'
+	sh -c '. _virtualenv/bin/activate; pytest -vvv --cov=$(SOURCEDIR) --disable-warnings --cov-report=html:coverage tests'
 
 test-all: _virtualenv
 	tox

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import pytest
-from sqlalchemy import MetaData, create_engine
+from sqlalchemy import Connection, MetaData, create_engine
 
 from sqlthemall.json_importer import SQLThemAll
 
@@ -93,7 +93,8 @@ def test_importer_initial_connection():
     Tests the initial status of the connetion attribute.
     """
     importer = SQLThemAll()
-    assert importer.connection is None
+    assert importer.connection is not None
+    assert isinstance(importer.connection, Connection)
 
 
 def test_importer_metadata():

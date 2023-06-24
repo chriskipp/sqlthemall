@@ -6,11 +6,11 @@ import logging
 import sys
 import traceback
 from collections.abc import Iterable
-from typing import Optional, TypeVar
+from typing import Optional, Set, TypeVar
 
 import alembic
-from sqlalchemy import (Boolean, Column, Date, Float, ForeignKey, Integer,
-                        MetaData, String, Table, create_engine)
+from sqlalchemy import (Boolean, Column, Connection, Date, Float, ForeignKey,
+                        Integer, MetaData, String, Table, create_engine)
 from sqlalchemy.engine import Engine
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import Session
@@ -61,7 +61,6 @@ class SQLThemAll:
         echo (bool): Echo the executed SQL statements.
     """
 
-    connection: Optional[Engine] = None
     schema_changed: bool = False
     session = None
     loglevel: str = "INFO"
@@ -83,7 +82,8 @@ class SQLThemAll:
         Args:
             dburl (str): Database URI.
             progress (bool): Show import progress.
-            loglevel (str): Set loglevel - one of "ERROR", "WARNING", "INFO", "DEBUG"(default "INFO")
+            loglevel (str): Set loglevel.
+              Choice from "ERROR", "WARNING", "INFO", "DEBUG" (default "INFO").
             simple (bool): Create a simplified database schema.
             autocommit (bool): Open the database in autocommit mode.
             root_table (str): The name of the table to import the JSON root.
@@ -100,7 +100,8 @@ class SQLThemAll:
         self.autocommit = autocommit
         self.root_table = str(root_table).lower()
 
-        self.engine = create_engine(self.dburl, echo=self.echo)
+        self.engine: Engine = create_engine(self.dburl, echo=self.echo)
+        self.connection = self.engine.connect()
         self.metadata = MetaData()
         self.metadata.reflect(
             self.engine, extend_existing=True, autoload_replace=True
@@ -216,7 +217,7 @@ class SQLThemAll:
             root_table (str): Table name of the JSON object root.
             simple (bool): Create a simple database schema.
         """
-        if not self.connection or self.connection.closed:
+        if self.connection.closed:
             self.connection = self.engine.connect()
             self.metadata = MetaData()
             self.metadata.reflect(
@@ -248,7 +249,7 @@ class SQLThemAll:
             obj: dict,
             current_table: Table = current_table,
             simple: bool = simple,
-            exclude_props: set = None,
+            exclude_props: Optional[Set] = None,
         ) -> None:
             """
             Creates table_schema from the structure of a given JSON object.
@@ -258,7 +259,6 @@ class SQLThemAll:
                 current_table (Table) : The current_table.
                 simple (bool): Create a simple database schema.
                 exclude_props : Column names to ignore
-                #exclude_props (set): Column names to ignore
             """
             if current_table.name in self.base.classes:
                 cls = self.base.classes[current_table.name]
@@ -276,7 +276,7 @@ class SQLThemAll:
                         continue
                     if k in (c.name for c in current_table.columns):
                         has_vals = (
-                            lambda v: v.__class__ == dict
+                            lambda v: isinstance(v, dict)
                             and v
                             and True
                             or v.__class__ == list
@@ -345,10 +345,14 @@ class SQLThemAll:
                             current_table.append_column(
                                 Column(k, col_types[val.__class__]())
                             )
-                            statement = alembic.ddl.base.AddColumn(
-                                current_table.name,
-                                Column(k, col_types[val.__class__]()),
-                            ).compile().__str__()
+                            statement = (
+                                alembic.ddl.base.AddColumn(
+                                    current_table.name,
+                                    Column(k, col_types[val.__class__]()),
+                                )
+                                .compile()
+                                .__str__()
+                            )
                             self.connection.execute(text(statement))
                             self._logger.info(
                                 "adding col %s to table %s",
@@ -433,7 +437,7 @@ class SQLThemAll:
             jsonobj (dict): Object to parse.
         """
 
-        def make_relational_obj(name, objc, session: Session):
+        def make_relational_obj(name, objc, session: Session, skip_empty: bool = True):
             """
             Generates a relational object which is insertable from.
 
@@ -443,10 +447,12 @@ class SQLThemAll:
                 name (str): Name of the table that will represent the object.
                 objc (dict): Object to parse.
                 session (Session): Session to use.
+                skip_empty (bool): Skipts objects without any information.
 
             Returns:
                 ormobject: Object defined by the object relational model.
             """
+            self._logger.debug(f"Make relational object ({name}) from: {objc}")
             name = name.lower()
             pre_ormobjc, collectiondict = {}, {}
             if objc.__class__ != dict:
@@ -454,9 +460,12 @@ class SQLThemAll:
             if "_id" in objc:
                 objc["id"] = objc.pop("_id")
             for k, val in objc.items():
+                if val is None or val == [] or val == {}:
+                    if skip_empty is True:
+                        continue
                 k = k.lower()
-                if val.__class__ in {dict, list}:
-                    if val.__class__ == dict:
+                if isinstance(val, (dict, list)):
+                    if isinstance(val, dict):
                         _collection = [
                             i
                             for i in [
@@ -466,10 +475,12 @@ class SQLThemAll:
                         ]
                         if _collection:
                             collectiondict[k] = _collection
-                    elif val.__class__ == list:
+                    elif isinstance(val, list):
                         if val:
+                        #if True:
                             val = [
-                                (i.__class__ == dict or i is None)
+                                #(i.__class__ == dict or i is None)
+                                i.__class__ == dict
                                 and i
                                 or {"value": i}
                                 for i in val
@@ -485,8 +496,6 @@ class SQLThemAll:
                             if not _collection:
                                 continue
                             collectiondict[k] = _collection
-                elif val is None:
-                    continue
                 else:
                     pre_ormobjc[k] = val
             if not pre_ormobjc:
@@ -512,7 +521,9 @@ class SQLThemAll:
                                 val,
                             )
             else:
+                self._logger.debug(f"pre_ormobjc: {pre_ormobjc}")
                 ormobjc = self.base.classes[name](**pre_ormobjc)
+                self._logger.debug(f"ormobjc: {ormobjc}")
 
                 if collectiondict:
                     for k, val in collectiondict.items():

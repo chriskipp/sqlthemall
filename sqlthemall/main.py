@@ -113,7 +113,7 @@ def parse_args(args: list[str]) -> argparse.Namespace:
         "--root-table",
         nargs=1,
         dest="root_table",
-        help="Name of the root table to import the root of the JSON object in.",
+        help="Name of the root table to import tthe JSON object into",
     )
     parser.add_argument(
         "-l",
@@ -210,7 +210,7 @@ def main() -> None:
             else:
                 while True:
                     lines: list = []
-                    for n in range(args.batch_size[0]):
+                    for _n in range(args.batch_size[0]):
                         line = sys.stdin.readline()
                         if not line:
                             break
