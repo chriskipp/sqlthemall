@@ -2,57 +2,54 @@
 
 PYTHON = python3
 SOURCEDIR = sqlthemall
+TESTDIR = tests
+CONTAINERNAME =
+TESTCONTAINER =
 
 
-black:
-	black --line-length 79 --safe $(SOURCEDIR)
+black: bootstrap
+	sh -c '. _virtualenv/bin/activate; black --line-length 79 --safe $(SOURCEDIR) $(TESTDIR)'
 
-autoflake:
-	autoflake -v -v --in-place --recursive --remove-all-unused-imports --ignore-init-module-imports $(SOURCEDIR)
+autoflake: bootstrap
+	sh -c '. _virtualenv/bin/activate; autoflake -v -v --in-place --recursive --remove-all-unused-imports --ignore-init-module-imports $(SOURCEDIR) $(TESTDIR)'
 
-isort:
-	isort $(SOURCEDIR)
+isort: bootstrap
+	sh -c '. _virtualenv/bin/activate; isort $(SOURCEDIR)'
+
+pdocstr: bootstrap
+	sh -c '. _virtualenv/bin/activate; pydocstringformatter --linewrap-full-docstring --write  --max-line-length 79 $(SOURCEDIR)'
+
+flake: bootstrap
+	sh -c '. _virtualenv/bin/activate; flake8 --statistics --show-source --requirements-file requirements.txt $(SOURCEDIR) $(TESTDIR)'
+
+pylint: bootstrap
+	sh -c '. _virtualenv/bin/activate; pylint --rcfile .pylintrc $(SOURCEDIR) $(TESTDIR)'
+
+pretty: bootstrap black autoflake isort pdocstr pylint clean
+
+bandit:
+	sh -c '. _virtualenv/bin/activate; bandit -r $(SOURCEDIR)'
 
 mypy:
-	mypy --install-types --non-interactive --ignore-missing-imports --exclude setup.py $(SOURCEDIR)
+	sh -c '. _virtualenv/bin/activate; mypy --install-types --non-interactive --ignore-missing-imports --exclude setup.py $(SOURCEDIR) $(TESTDIR)'
 
-pdocstr:
-	pydocstringformatter --linewrap-full-docstring --write  --max-line-length 79 $(SOURCEDIR)
+check: bootstrap mypy bandit clean
 
-flake:
-	flake8 --statistics --show-source --ignore S310 --requirements-file requirements.txt $(SOURCEDIR)
-
-pylint:
-	pylint --rcfile .pylintrc $(SOURCEDIR)
-
-autolint: black isort mypy pdocstr autoflake clean
-lint: flake pylint
-
-install:
-ifeq ($(shell whoami),root)
-		$(PYTHON) setup.py install
-else
-		$(PYTHON) setup.py install --user
-endif
 
 test: bootstrap
-	sh -c '. _virtualenv/bin/activate; $(PYTHON) -m pip install -r requirements-dev.txt'
-	sh -c '. _virtualenv/bin/activate; pytest -vvv tests'
+	sh -c '. _virtualenv/bin/activate; pytest -vvv --disable-warnings $(TESTDIR)'
 
-cov: bootstrap
-	sh -c '. _virtualenv/bin/activate; $(PYTHON) -m pip install -r requirements-dev.txt'
-	sh -c '. _virtualenv/bin/activate; pytest -vvv --cov=$(SOURCEDIR) --disable-warnings --cov-report=html:coverage tests'
+test_with_warnings: bootstrap
+	sh -c '. _virtualenv/bin/activate; pytest -vvv $(TESTDIR)'
 
-test-all: _virtualenv
+coverage: bootstrap
+	sh -c '. _virtualenv/bin/activate; pytest -vvv --cov=$(SOURCEDIR) --disable-warnings --cov-report=html:coverage $(TESTDIR)'
+
+tox:
 	tox
 
-#upload: test-all build-dist
-#	_virtualenv/bin/twine upload dist/*
-#	make clean
-
-.PHONY: build-dist
-
-build-dist: clean
+build-dist:: bootstrap
+	curl -sSL https://install.python-poetry.org | _virtualenv/bin/$(PYTHON) -
 	_virtualenv/bin/pyproject-build
 
 clean:
@@ -77,21 +74,20 @@ clean:
 	rm -rf .pytest_cache
 	rm -rf .tox
 	rm -f test.sqlite
-
-.PHONY: bootstrap
-
-bootstrap: _virtualenv
-	sh -c '. _virtualenv/bin/activate; $(PYTHON) setup.py install'
+	rm -f .pyre_configuration
+	rm -rf .pyre
+	rm -rf uploads
 
 _virtualenv:
-	python3 -m venv _virtualenv
+	$(PYTHON) -m venv _virtualenv
 	_virtualenv/bin/pip install --upgrade pip
-	_virtualenv/bin/pip install --upgrade setuptools
-	_virtualenv/bin/pip install --upgrade wheel
-	_virtualenv/bin/pip install --upgrade build twine
+	_virtualenv/bin/pip install --upgrade setuptools wheel build twine
+
+bootstrap: _virtualenv
+	_virtualenv/bin/pip install -r requirements.txt
+	_virtualenv/bin/pip install -r requirements-dev.txt
+	sh -c '. _virtualenv/bin/activate; $(PYTHON) setup.py install'
 
 update_req: bootstrap
-	sed 's/[<>=].*/\\s/' requirements.txt requirements-dev.txt > _requirements.txt
-	sh -c '. _virtualenv/bin/activate; ( $(PYTHON) -m pip list --outdated | grep -if _requirements.txt ) || echo "No outdated packages."'
-	rm _requirements.txt
+	_virtualenv/bin/pip list --outdated | sed '1,2d' up | awk '{ print "/"$1"[<>=][<>=]"$2"/s/"$2"/"$3"/" }' | sed -if - requirements.txt requirements-dev.txt
 

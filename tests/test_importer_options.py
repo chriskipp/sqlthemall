@@ -56,7 +56,9 @@ def test_importer_progress(progress):
     assert importer.progress == progress
 
 
-@pytest.mark.parametrize("loglevel", [None, True, False, "INFO", "DEBUG", "WARNING", "ERROR"])
+@pytest.mark.parametrize(
+    "loglevel", [None, True, False, "INFO", "DEBUG", "WARNING", "ERROR"]
+)
 def test_importer_loglevel(loglevel):
     """
     Tests various values of the loglevel option.

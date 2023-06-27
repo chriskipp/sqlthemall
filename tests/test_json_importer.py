@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import pytest
+
 try:
     import ujson as json
 except ImportError:
