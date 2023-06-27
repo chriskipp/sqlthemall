@@ -8,3 +8,5 @@ pyfmt-svtter==0.1.0
 pylint==2.15.5
 pytest==7.2.0
 pytest-cov==4.0.0
+bandit==1.7.5
+pydocstringformatter==0.7.3

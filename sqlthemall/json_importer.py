@@ -9,18 +9,8 @@ from collections.abc import Iterable
 from typing import Optional, Set, TypeVar
 
 import alembic
-from sqlalchemy import (
-    Boolean,
-    Column,
-    Date,
-    Float,
-    ForeignKey,
-    Integer,
-    MetaData,
-    String,
-    Table,
-    create_engine,
-)
+from sqlalchemy import (Boolean, Column, Date, Float, ForeignKey, Integer,
+                        MetaData, String, Table, create_engine)
 from sqlalchemy.engine import Engine
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import Session
