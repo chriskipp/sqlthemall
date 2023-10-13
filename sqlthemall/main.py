@@ -30,9 +30,9 @@ def parse_json(jsonstr: str_or_bytes) -> Optional[dict_or_list]:
     Returns:
         dict or list: Parsed JSON input.
     """
+    if not jsonstr:
+        return None
     try:
-        if not jsonstr:
-            return None
         return json.loads(jsonstr)
     except json.JSONDecodeError:
         traceback.print_exc()

@@ -1,0 +1,7 @@
+sqlite:///test.db
+#sqlite+aiosqlite:///asynctest.db
+rqlite+pyrqlite://localhost:4001/
+#mysql+aiomysql://username:password@localhost:3306/testsuite
+#mysql+asyncmy://username:password@localhost:3306/testsuite
+#postgresql+aiopg://username:password@127.0.0.1:5432/testsuite
+#postgresql+asyncpg://username:password@localhost:5432/testsuite
