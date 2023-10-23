@@ -40,7 +40,6 @@ def compare_obj(obj1, obj2):
         obj1 (dict): A python object.
         obj2 (dict): A python object to be compared with.
     """
-
     def normalize(o):
         """
         Normalizes the provided object.
@@ -65,33 +64,29 @@ def compare_obj(obj1, obj2):
         """
         if isinstance(val1, (str, int, float)):
             return val1 == val2
-                #return False
-        elif val1.__class__ == bool:
-            if val1 != bool(val2):
-                return False
-        elif val1.__class__ == dict and val2.__class__ == dict:
+        elif isinstance(val1, bool):
+            return val1 is val2
+        elif isinstance(val1, dict) and isinstance(val2, dict):
             val1, val2 = normalize(val1), normalize(val2)
-            if not compare_obj(val1, val2):
-                return False
-        elif {val1.__class__, val2.__class__} == {dict, list}:
-            if val1.__class__ == list and len(val1) == 1:
-                val1 = val1[0]
-            elif val2.__class__ == list and len(val2) == 1:
-                val2 = val2[0]
-            val1, val2 = normalize(val1), normalize(val2)
-            if not compare_obj(val1, val2):
-                return False
-        elif val1.__class__ == list and val2.__class__ == list:
+            return compare_obj(val1, val2)
+        elif isinstance(val1, list) and isinstance(val2, list):
             for sval1, sval2 in zip(val1, val2):
                 if not compare_val(sval1, sval2):
                     return False
+        elif isinstance(val1, (list, dict)) and isinstance(val2, (list, dict)):
+            if isinstance(val1, list) and len(val1) == 1:
+                val1 = val1[0]
+            elif isinstance(val2, list) and len(val2) == 1:
+                val2 = val2[0]
+            val1, val2 = normalize(val1), normalize(val2)
+            return compare_obj(val1, val2)
         return True
 
-    if obj1.__class__ == dict and obj2.__class__ == dict:
+    if isinstance(obj1, dict) and isinstance(obj2, dict):
         obj1, obj2 = normalize(obj1), normalize(obj2)
 
         for k in obj1:
-            if obj1[k].__class__ == list and obj2[k].__class__ == list:
+            if isinstance(obj1[k], list) and isinstance(obj2[k], list):
                 for i in range(len(obj1[k])):
                     if not compare_val(obj1[k][i], obj2[k][i]):
                         return False
@@ -99,6 +94,6 @@ def compare_obj(obj1, obj2):
                 return False
         return True
 
-    if not compare_val(obj1, obj2):
+    elif not compare_val(obj1, obj2):
         return False
     return True
