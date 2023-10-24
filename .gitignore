@@ -4,3 +4,4 @@ test.sqlite
 _virtualenv
 build
 r.txt
+.tox

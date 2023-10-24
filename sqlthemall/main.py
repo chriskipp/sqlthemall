@@ -1,31 +1,29 @@
 #!/usr/bin/env python3
-"""Python file to be called from the command line programm."""
-
 import argparse
 import sys
 import traceback
 import urllib.request
 from urllib.error import URLError
+from io import TextIOWrapper
+from http.client import HTTPResponse
+
 
 try:
     import ujson as json
 except ImportError:
     import json  # type: ignore
 
-from typing import Optional, TypeVar
+from typing import Optional, TypeVar, Iterator, Union
 
 from sqlthemall.json_importer import SQLThemAll
 
-str_or_bytes = TypeVar("str_or_bytes", str, bytes)
-dict_or_list = TypeVar("dict_or_list", dict, list)
 
-
-def parse_json(jsonstr: str_or_bytes) -> Optional[dict_or_list]:
+def parse_json(jsonstr: Union[str, bytes]) -> Optional[Union[dict,list]]:
     """
     Parses JSON from a string or bytes object and returns a python object.
 
     Parameters:
-        jsonstr (str_or_bytes): String or bytes to parse JSON from.
+        jsonstr (str or bytes): String or bytes to parse JSON from.
 
     Returns:
         dict or list: Parsed JSON input.
@@ -38,6 +36,84 @@ def parse_json(jsonstr: str_or_bytes) -> Optional[dict_or_list]:
         traceback.print_exc()
         return None
 
+def read_json(source_descriptor: Union[TextIOWrapper, HTTPResponse], lines: bool = False, batch_size: int = 100) -> Iterator[Union[dict, list]]:
+    """
+    Unifies reading JSON from different sources (url, file, stdin).
+
+    Parameters:
+        source_descriptor: Filedescriptor, Responsedescriptor or sys.stdin.
+        lines (bool): Parse lines instead of complete source.
+        batch_size (int): How many lines should be returned per yield.
+
+    Returns:
+        Iterator[Union[dict,list]]: Parsed JSON input.
+    """
+    if lines is False:
+        yield parse_json(source_descriptor.read())
+    else:
+        while True:
+            lines: list = []
+            for _n in range(batch_size):
+                line = source_descriptor.readline()
+                if not line:
+                    break
+                obj = parse_json(line.strip())
+                if obj:
+                    lines.append(obj)
+            if not lines:
+                break
+            yield lines
+
+def gen_importer(args: argparse.Namespace) -> SQLThemAll:
+    """
+    Generates the Importer depending on the given arguments.
+
+    Args:
+        args (argparse.Namespace): List of arguments to parse.
+
+    Returns:
+        SQLThemAll: Importer.
+    """
+    return SQLThemAll(
+        dburl=args.dburl[0],
+        loglevel=args.loglevel[0],
+        progress=not args.no_progress,
+        autocommit=args.autocommit,
+        simple=args.simple,
+        root_table=args.root_table[0],
+        echo=args.echo,
+    )
+
+def read_from_source(args: argparse.Namespace) -> Iterator[Union[dict,list]]:
+    """
+    Wrapper function for read_json which instantiates the source_descriptor
+    depending on the given arguments.
+
+    Args:
+        args (argparse.Namespace): List of arguments to parse.
+
+    Returns:
+        Iterator[Union[dict,list]]: Iterator over the objects provided in the
+        sourde.
+    """
+    try:
+        if args.url:
+            with urllib.request.urlopen(args.url[0], timeout=300) as res:
+                for j in read_json(res, lines=args.line, batch_size=args.batch_size[0]):
+                    yield j
+        elif args.file:
+            with open(args.file[0]) as f:
+                for j in read_json(f, lines=args.line, batch_size=args.batch_size[0]):
+                    yield j
+        else:
+            for j in read_json(sys.stdin, lines=args.line, batch_size=args.batch_size[0]):
+                yield j
+    except URLError:
+        traceback.print_exc()
+        sys.exit(3)
+    except Exception:
+        traceback.print_exc()
+        sys.exit(1)
 
 def parse_args(args: list[str]) -> argparse.Namespace:
     """
@@ -113,6 +189,7 @@ def parse_args(args: list[str]) -> argparse.Namespace:
         "--root-table",
         nargs=1,
         dest="root_table",
+        default=["main"],
         help="Name of the root table to import tthe JSON object into",
     )
     parser.add_argument(
@@ -144,98 +221,12 @@ def main() -> None:
     """Main function."""
     args = parse_args(sys.argv[1:])
 
-    if not args.root_table:
-        args.root_table = ["main"]
+    importer: SQLThemAll = gen_importer(args=args)
 
-    importer = SQLThemAll(
-        dburl=args.dburl[0],
-        loglevel=args.loglevel[0],
-        progress=not args.no_progress,
-        autocommit=args.autocommit,
-        simple=args.simple,
-        root_table=args.root_table[0],
-        echo=args.echo,
-    )
-
-    if not args.line:
-        if args.url:
-            try:
-                if args.url[0].startswith("http"):
-                    with urllib.request.urlopen(
-                        args.url[0], timeout=300
-                    ) as res:
-                        jsonstr = res.read()
-            except URLError:
-                traceback.print_exc()
-                sys.exit(3)
-        elif args.file:
-            with open(args.file[0], encoding="utf-8") as f:
-                jsonstr = f.read().strip()
-        else:
-            jsonstr = sys.stdin.read().strip()
-        obj = parse_json(jsonstr)
-
-        if obj.__class__ == list:
-            obj = {args.root_table[0]: obj}
-
-        if obj:
-            importer.create_schema(jsonobj=obj)
-            if not args.noimport:
-                importer.insert_data_to_schema(jsonobj=obj)
-
-    elif args.line:
-        if args.url:
-            try:
-                if args.url[0].startswith("http"):
-                    with urllib.request.urlopen(
-                        args.url[0], timeout=300
-                    ) as res:  # noqa: S310
-                        objs = [parse_json(line) for line in res.readlines()]
-            except URLError:
-                traceback.print_exc()
-                sys.exit(3)
-        elif args.file:
-            with open(args.file[0], encoding="utf-8") as f:
-                objs = [json.loads(line.strip()) for line in f.readlines()]
-        else:
-            if not args.sequential:
-                objs = [
-                    json.loads(line.strip()) for line in sys.stdin.readlines()
-                ]
-                obj = {importer.root_table: objs}
-                importer.create_schema(jsonobj=obj)
-                if not args.noimport:
-                    importer.insert_data_to_schema(jsonobj=obj)
-
-            else:
-                while True:
-                    lines: list = []
-                    for _n in range(args.batch_size[0]):
-                        line = sys.stdin.readline()
-                        if not line:
-                            break
-                        obj = parse_json(line.strip())
-                        if obj:
-                            lines.append(obj)
-                    if not lines:
-                        break
-
-                    obj = {importer.root_table: lines}
-                    try:
-                        importer.create_schema(jsonobj=obj)
-                        if not args.noimport:
-                            importer.insert_data_to_schema(jsonobj=obj)
-                    except BaseException:
-                        traceback.print_exc()
-                        for one_line in lines:
-                            try:
-                                obj = {importer.root_table: [one_line]}
-                                importer.create_schema(jsonobj=obj)
-                                if not args.noimport:
-                                    importer.insert_data_to_schema(jsonobj=obj)
-                            except BaseException:
-                                traceback.print_exc()
+    for j in read_from_source(args=args):
+        importer.import_multi_json(j)
 
 
 if __name__ == "__main__":
     main()
+
