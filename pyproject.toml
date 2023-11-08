@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "sqlthemall"
+version = "0.1.0"
+description = "Automatic import of JSON data into relational databases"
+authors = ["Christopher Kipp <christopher.kipp@web.de>"]
+license = "GPL-3.0-or-later"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+alembic = "1.11.1"
+sqlalchemy = "2.0.17"
+ujson = {version = "^5.8.0", optional = true}
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+

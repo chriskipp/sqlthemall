@@ -1,17 +1,19 @@
-# Makefile
+# Makefile for python projects
 
-PYTHON = python3
+PYTHON    = python3
 SOURCEDIR = sqlthemall
-TESTDIR = tests
+TESTDIR   = tests
+
 CONTAINERNAME =
 TESTCONTAINER =
 
 
-black: bootstrap
-	sh -c '. _virtualenv/bin/activate; black --line-length 79 --safe $(SOURCEDIR) $(TESTDIR)'
 
-autoflake: bootstrap
-	sh -c '. _virtualenv/bin/activate; autoflake -v -v --in-place --recursive --remove-all-unused-imports --ignore-init-module-imports $(SOURCEDIR) $(TESTDIR)'
+black:
+	black --line-length 79 --skip  --safe $(SOURCEDIR) $(TESTDIR)
+
+autoflake:
+	autoflake -v -v --in-place --recursive --remove-all-unused-imports --ignore-init-module-imports $(SOURCEDIR) $(TESTDIR)
 
 isort: bootstrap
 	sh -c '. _virtualenv/bin/activate; isort $(SOURCEDIR)'
@@ -30,16 +32,29 @@ pretty: bootstrap black autoflake isort pdocstr pylint clean
 bandit:
 	sh -c '. _virtualenv/bin/activate; bandit -r $(SOURCEDIR)'
 
+pdocstr: bootstrap
+	sh -c '. _virtualenv/bin/pydocstringformatter --linewrap-full-docstring --write  --max-line-length 79 $(SOURCEDIR)'
+
+flake:
+	flake8 --statistics --show-source --ignore S310 --requirements-file requirements.txt $(SOURCEDIR) $(TESTDIR)
+
+pylint: bootstrap
+	pylint --rcfile .pylintrc $(SOURCEDIR) $(TESTDIR)
+
+pretty: bootstrap black autoflake isort pdocstr pylint clean
+
+
+bandit:
+	bandit -r $(SOURCEDIR) $(TESTDIR)
+
 mypy:
-	sh -c '. _virtualenv/bin/activate; mypy --install-types --non-interactive --ignore-missing-imports --exclude setup.py $(SOURCEDIR) $(TESTDIR)'
+	mypy --install-types --non-interactive --ignore-missing-imports --exclude setup.py $(SOURCEDIR) $(TESTDIR)
 
 check: bootstrap mypy bandit clean
 
 
-test: bootstrap
-	sh -c '. _virtualenv/bin/activate; pytest -vvv --disable-warnings $(TESTDIR)'
 
-test_with_warnings: bootstrap
+test: bootstrap
 	sh -c '. _virtualenv/bin/activate; pytest -vvv $(TESTDIR)'
 
 coverage: bootstrap
@@ -48,7 +63,15 @@ coverage: bootstrap
 tox:
 	tox
 
-build-dist:: bootstrap
+
+install:
+ifeq ($(shell whoami),root)
+		$(PYTHON) setup.py install
+else
+		$(PYTHON) setup.py install --user
+endif
+
+build-dist: bootstrap
 	curl -sSL https://install.python-poetry.org | _virtualenv/bin/$(PYTHON) -
 	_virtualenv/bin/pyproject-build
 
@@ -74,9 +97,6 @@ clean:
 	rm -rf .pytest_cache
 	rm -rf .tox
 	rm -f test.sqlite
-	rm -f .pyre_configuration
-	rm -rf .pyre
-	rm -rf uploads
 
 _virtualenv:
 	$(PYTHON) -m venv _virtualenv
@@ -88,6 +108,8 @@ bootstrap: _virtualenv
 	_virtualenv/bin/pip install -r requirements-dev.txt
 	sh -c '. _virtualenv/bin/activate; $(PYTHON) setup.py install'
 
+
 update_req: bootstrap
 	_virtualenv/bin/pip list --outdated | sed '1,2d' up | awk '{ print "/"$1"[<>=][<>=]"$2"/s/"$2"/"$3"/" }' | sed -if - requirements.txt requirements-dev.txt
+
 
