@@ -206,7 +206,8 @@ class SQLThemAll:
         )
 
     def create_schema(
-        self, jsonobj: dict, root_table: str = "", simple: bool = False
+        self, jsonobj: dict, root_table: str = "", simple: bool = False,
+        no_write = False
     ) -> None:
         """
         Creates table_schema from the structure of a given JSON object.
@@ -215,6 +216,7 @@ class SQLThemAll:
             jsonobj (dict): jsonobj.
             root_table (str): Table name of the JSON object root.
             simple (bool): Create a simple database schema.
+            no_write (bool): Do not write the created schema to the database.
         """
         if not self.connection or self.connection.closed:
             self.connection = self.engine.connect()
@@ -345,16 +347,17 @@ class SQLThemAll:
                             current_table.append_column(
                                 Column(k, col_types[val.__class__]())
                             )
-                            statement = alembic.ddl.base.AddColumn(
-                                current_table.name,
-                                Column(k, col_types[val.__class__]()),
-                            ).compile().__str__()
-                            self.connection.execute(text(statement))
-                            self._logger.info(
-                                "adding col %s to table %s",
-                                k,
-                                current_table.name,
-                            )
+                            if no_write is not True:
+                                statement = alembic.ddl.base.AddColumn(
+                                    current_table.name,
+                                    Column(k, col_types[val.__class__]()),
+                                ).compile().__str__()
+                                self.connection.execute(text(statement))
+                                self._logger.info(
+                                    "adding col %s to table %s",
+                                    k,
+                                    current_table.name,
+                                )
                         elif val.__class__ == dict:
                             if k not in self.metadata.tables:
                                 if not simple:
@@ -409,10 +412,21 @@ class SQLThemAll:
                                         exclude_props=set(current_table.name),
                                     )
 
-        if jsonobj.__class__ == list:
+        if isinstance(jsonobj, list):
             jsonobj = {self.root_table: jsonobj}
         parse_dict(obj=jsonobj)
 
+        if no_write is not True:
+            self.write_schema()
+
+
+    def write_schema(self) -> None:
+        """
+        Writes the given metadata object to the database.
+
+        Args:
+            metadata (Metadata): Metadata tp write.
+        """
         if self.schema_changed:
             self.metadata.create_all(self.engine)
             self.metadata.reflect(
