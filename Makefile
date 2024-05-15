@@ -1,79 +1,13 @@
-# Makefile for python projects
+# Some simple testing tasks (sorry, UNIX only).
 
-PYTHON    = python3
+
+PYTHON_VERSION = 3.10
+PYTHON = python$(PYTHON_VERSION)
+VENV_PATH = $(shell poetry env use --quiet $(PYTHON); poetry env info --path)
+
 SOURCEDIR = sqlthemall
-TESTDIR   = tests
+TESTDIR = tests
 
-CONTAINERNAME =
-TESTCONTAINER =
-
-
-
-black:
-	black --line-length 79 --skip  --safe $(SOURCEDIR) $(TESTDIR)
-
-autoflake:
-	autoflake -v -v --in-place --recursive --remove-all-unused-imports --ignore-init-module-imports $(SOURCEDIR) $(TESTDIR)
-
-isort: bootstrap
-	sh -c '. _virtualenv/bin/activate; isort $(SOURCEDIR)'
-
-pdocstr: bootstrap
-	sh -c '. _virtualenv/bin/activate; pydocstringformatter --linewrap-full-docstring --write  --max-line-length 79 $(SOURCEDIR)'
-
-flake: bootstrap
-	sh -c '. _virtualenv/bin/activate; flake8 --statistics --show-source --requirements-file requirements.txt $(SOURCEDIR) $(TESTDIR)'
-
-pylint: bootstrap
-	sh -c '. _virtualenv/bin/activate; pylint --rcfile .pylintrc $(SOURCEDIR) $(TESTDIR)'
-
-pretty: bootstrap black autoflake isort pdocstr pylint clean
-
-bandit:
-	sh -c '. _virtualenv/bin/activate; bandit -r $(SOURCEDIR)'
-
-pdocstr: bootstrap
-	sh -c '. _virtualenv/bin/pydocstringformatter --linewrap-full-docstring --write  --max-line-length 79 $(SOURCEDIR)'
-
-flake:
-	flake8 --statistics --show-source --ignore S310 --requirements-file requirements.txt $(SOURCEDIR) $(TESTDIR)
-
-pylint: bootstrap
-	pylint --rcfile .pylintrc $(SOURCEDIR) $(TESTDIR)
-
-pretty: bootstrap black autoflake isort pdocstr pylint clean
-
-
-bandit:
-	bandit -r $(SOURCEDIR) $(TESTDIR)
-
-mypy:
-	mypy --install-types --non-interactive --ignore-missing-imports --exclude setup.py $(SOURCEDIR) $(TESTDIR)
-
-check: bootstrap mypy bandit clean
-
-
-
-test: bootstrap
-	sh -c '. _virtualenv/bin/activate; pytest -vvv $(TESTDIR)'
-
-coverage: bootstrap
-	sh -c '. _virtualenv/bin/activate; pytest -vvv --cov=$(SOURCEDIR) --disable-warnings --cov-report=html:coverage $(TESTDIR)'
-
-tox:
-	tox
-
-
-install:
-ifeq ($(shell whoami),root)
-		$(PYTHON) setup.py install
-else
-		$(PYTHON) setup.py install --user
-endif
-
-build-dist: bootstrap
-	curl -sSL https://install.python-poetry.org | _virtualenv/bin/$(PYTHON) -
-	_virtualenv/bin/pyproject-build
 
 clean:
 	rm -rf `find . -name __pycache__`
@@ -85,7 +19,7 @@ clean:
 	rm -f `find . -type f -name '#*#' `
 	rm -f `find . -type f -name '*.orig' `
 	rm -f `find . -type f -name '*.rej' `
-	rm -rf _virtualenv
+	rm -rf _venv
 	rm -rf _requirements.txt
 	rm -rf _requirements-dev.txt
 	rm -rf .coverage
@@ -96,20 +30,72 @@ clean:
 	rm -rf .mypy_cache
 	rm -rf .pytest_cache
 	rm -rf .tox
-	rm -f test.sqlite
+	rm -f .pyre_configuration
+	rm -rf .pyre
+	poetry env remove --all
 
-_virtualenv:
-	$(PYTHON) -m venv _virtualenv
-	_virtualenv/bin/pip install --upgrade pip
-	_virtualenv/bin/pip install --upgrade setuptools wheel build twine
+bootstrap:
+	poetry lock
+	poetry install
 
-bootstrap: _virtualenv
-	_virtualenv/bin/pip install -r requirements.txt
-	_virtualenv/bin/pip install -r requirements-dev.txt
-	sh -c '. _virtualenv/bin/activate; $(PYTHON) setup.py install'
+test: bootstrap
+	poetry run pytest -vvv --disable-warnings $(TESTDIR)
+
+test_w_warnings: bootstrap
+	poetry run pytest -vvv $(TESTDIR)
+
+test-all:
+	tox
+
+coverage: bootstrap
+	poetry run pytest -vvv --cov=$(SOURCEDIR) --disable-warnings --cov-report=html:coverage $(TESTDIR)
+
+black:
+	poetry run black --line-length 79 --safe $(SOURCEDIR) $(TESTDIR)
 
 
-update_req: bootstrap
-	_virtualenv/bin/pip list --outdated | sed '1,2d' up | awk '{ print "/"$1"[<>=][<>=]"$2"/s/"$2"/"$3"/" }' | sed -if - requirements.txt requirements-dev.txt
+autoflake:
+	poetry run autoflake -v -v --in-place --recursive --remove-all-unused-imports --ignore-init-module-imports $(SOURCEDIR) $(TESTDIR)
+
+isort:
+	poetry run isort $(SOURCEDIR) $(TESTDIR)
+
+mypy:
+	poetry run mypy --install-types --non-interactive --ignore-missing-imports $(SOURCEDIR) $(TESTDIR)
+
+pdocstr:
+	poetry run pydocstringformatter --linewrap-full-docstring --write  --max-line-length 79 $(SOURCEDIR) $(TESTDIR)
+
+flake:
+	poetry run flake8 --statistics --show-source --extend-ignore=S101,I900,G004,S310 $(SOURCEDIR) $(TESTDIR)
+
+pylint:
+	poetry run pylint --rcfile .pylintrc $(SOURCEDIR) $(TESTDIR)
+
+
+lint: bootstrap black autoflake isort mypy pdocstr flake pylint
+
+
+
+bandit:
+	bandit -r $(SOURCEDIR)
+
+##.PHONY: upload
+#
+##upload: test-all build-dist
+##	_venv/bin/twine upload dist/*
+##	make clean
+#
+#.PHONY: build-dist
+#
+#build-dist: clean
+#	_venv/bin/pyproject-build
+#
+#.PHONY: clean
+#
+#
+#update_req: bootstrap
+#	sh -c '. _venv/bin/activate; REQILE="requirements-dev.txt"; cat "${REQILE}" | xargs --max-args=1 --delimiter='\n' python3 -m pip install -U; _cat "${REQILE}" | sed -e 's/[<>=]\+.*//' -e 's/^/^/' -e 's/$/[=]/g' > "_${REQILE}"; _python3 -m pip list --format=freeze | grep -f "_${REQILE}" > "${REQILE}"'
+#	sh -c '. _venv/bin/activate; REQILE="requirements.txt"; cat "${REQILE}" | xargs --max-args=1 --delimiter='\n' python3 -m pip install -U; _cat "${REQILE}" | sed -e 's/[<>=]\+.*//' -e 's/^/^/' -e 's/$/[=]/g' > "_${REQILE}"; _python3 -m pip list --format=freeze | grep -f "_${REQILE}" > "${REQILE}"'
 
 

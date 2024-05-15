@@ -5,7 +5,8 @@ from sqlalchemy.orm.collections import InstrumentedList
 
 def dbobj2obj(dbobj, parent_class=None):
     """
-    Converts a sqlalchemy.orm object to a python dictionary
+    Converts a sqlalchemy.orm object to a python dictionary.
+
     mapping all defined columns to key/value pairs.
 
     Attributes:
@@ -32,7 +33,9 @@ def dbobj2obj(dbobj, parent_class=None):
 
 def compare_obj(obj1, obj2):
     """
-    Compares two objects recursively. To be validated as equal
+    Compares two objects recursively.
+
+    To be validated as equal
     all keys and values of the object itself as well as of
     subobjects arrays ect. must be equal.
 
@@ -40,6 +43,7 @@ def compare_obj(obj1, obj2):
         obj1 (dict): A python object.
         obj2 (dict): A python object to be compared with.
     """
+
     def normalize(o):
         """
         Normalizes the provided object.
@@ -64,12 +68,12 @@ def compare_obj(obj1, obj2):
         """
         if isinstance(val1, (str, int, float)):
             return val1 == val2
-        elif isinstance(val1, bool):
+        if isinstance(val1, bool):
             return val1 is val2
-        elif isinstance(val1, dict) and isinstance(val2, dict):
+        if isinstance(val1, dict) and isinstance(val2, dict):
             val1, val2 = normalize(val1), normalize(val2)
             return compare_obj(val1, val2)
-        elif isinstance(val1, list) and isinstance(val2, list):
+        if isinstance(val1, list) and isinstance(val2, list):
             for sval1, sval2 in zip(val1, val2):
                 if not compare_val(sval1, sval2):
                     return False
@@ -94,6 +98,6 @@ def compare_obj(obj1, obj2):
                 return False
         return True
 
-    elif not compare_val(obj1, obj2):
+    if not compare_val(obj1, obj2):
         return False
     return True

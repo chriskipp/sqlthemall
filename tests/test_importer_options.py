@@ -2,11 +2,15 @@
 
 import pytest
 from sqlalchemy import Connection, MetaData, create_engine
-from sqlthemall.json_importer import SQLThemAll
 
+from sqlthemall.json_importer import SQLThemAll
 from sqlthemall.main import gen_importer, parse_args, read_from_source
 
+
+DEFAULT_ROOT_TABLE = "main"
+
 required_args = ["-d", "sqlite://"]
+
 
 @pytest.mark.parametrize("dburl", [None, "sqlite://", "sqlite:///test.sqlite"])
 def test_importer_engine(dburl):
@@ -37,10 +41,11 @@ def test_importer_root_table(root_table):
     """
     if root_table is None:
         args = parse_args(required_args)
+        root_table = DEFAULT_ROOT_TABLE
     else:
         args = parse_args(required_args + ["--root-table", root_table])
     importer = gen_importer(args)
-    importer.root_table == str(root_table).lower()
+    assert importer.root_table == str(root_table).lower()
 
 
 @pytest.mark.parametrize("progress", [True, False])
@@ -93,6 +98,7 @@ def test_importer_simple(simple):
     importer = gen_importer(args)
     assert importer.simple is simple
 
+
 @pytest.mark.parametrize("url", ["https://restcountries.com/v2/all"])
 def test_url_argument(url):
     """
@@ -105,6 +111,7 @@ def test_url_argument(url):
     for obj in read_from_source(args):
         assert isinstance(obj, (dict, list))
 
+
 @pytest.mark.parametrize("file", ["data/example.json"])
 def test_file_argument(file):
     """
@@ -116,6 +123,7 @@ def test_file_argument(file):
     args = parse_args(required_args + ["--file", file])
     for obj in read_from_source(args):
         assert isinstance(obj, (dict, list))
+
 
 @pytest.mark.parametrize("file", ["data/json_lines.json"])
 def test_line_argument(file):
@@ -130,23 +138,17 @@ def test_line_argument(file):
         assert isinstance(obj, (dict, list))
 
 
-
 def test_importer_initial_connection():
-    """
-    Tests the initial status of the connetion attribute.
-    """
+    """Tests the initial status of the connetion attribute."""
     importer = SQLThemAll()
     assert importer.connection is not None
     assert isinstance(importer.connection, Connection)
 
 
 def test_importer_metadata():
-    """
-    Tests the correctnes of the importer.metadata.
-    """
+    """Tests the correctnes of the importer.metadata."""
     importer = SQLThemAll()
     engine = importer.engine
     metadata = MetaData()
     metadata.reflect(bind=engine)
     assert importer.metadata.sorted_tables == metadata.sorted_tables
-

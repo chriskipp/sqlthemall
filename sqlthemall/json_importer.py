@@ -1,22 +1,29 @@
 #!/usr/bin/env python3
 """This module contains the main importer class `SQLThemAll`."""
 
+from collections.abc import Iterable
 import datetime
 import logging
 import sys
 import traceback
-from collections.abc import Iterable
-from typing import Optional, Set, TypeVar
 
 import alembic
-from sqlalchemy import (Boolean, Column, Date, Float, ForeignKey, Integer,
-                        MetaData, String, Table, create_engine)
+from sqlalchemy import (
+    Boolean,
+    Column,
+    Date,
+    Float,
+    ForeignKey,
+    Integer,
+    MetaData,
+    String,
+    Table,
+    create_engine,
+)
 from sqlalchemy.engine import Engine
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import text
-
-tuple_or_set = TypeVar("tuple_or_set", tuple, set)
 
 
 def create_logger(name: str, loglevel: str = "INFO") -> logging.Logger:
@@ -121,7 +128,7 @@ class SQLThemAll:
         Returns:
             Table: Newly created Table.
         """
-        self._logger.info("Creating table %s", name)
+        self._logger.info(f"Creating table {name}")
         return Table(
             name,
             self.metadata,
@@ -144,8 +151,8 @@ class SQLThemAll:
         Returns:
             Table: Newly created Table.
         """
-        self._logger.info("Creating table %s", name)
-        self._logger.info("Creating bridge %s - %s", current_table.name, name)
+        self._logger.info(f"Creating table {name}")
+        self._logger.info(f"Creating bridge {current_table.name} - {name}")
         Table(
             "bridge_" + current_table.name + "_" + name,
             self.metadata,
@@ -171,7 +178,7 @@ class SQLThemAll:
         Returns:
             Table: Newly created Table.
         """
-        self._logger.info("Creating table %s", name)
+        self._logger.info(f"Creating table {name}")
         return Table(
             name,
             self.metadata,
@@ -194,7 +201,7 @@ class SQLThemAll:
         Returns:
             Table: Newly created Table.
         """
-        self._logger.info("Creating table %s", name)
+        self._logger.info(f"Creating table {name}")
         return Table(
             name,
             self.metadata,
@@ -249,7 +256,6 @@ class SQLThemAll:
             obj: dict,
             current_table: Table = current_table,
             simple: bool = simple,
-            exclude_props: Optional[Set] = None,
         ) -> None:
             """
             Creates table_schema from the structure of a given JSON object.
@@ -258,16 +264,15 @@ class SQLThemAll:
                 obj (dict): Object to parse.
                 current_table (Table) : The current_table.
                 simple (bool): Create a simple database schema.
-                exclude_props : Column names to ignore
             """
             if current_table.name in self.base.classes:
                 cls = self.base.classes[current_table.name]
                 props = set(cls.__dict__.keys())
             else:
                 props = set()
-            self._logger.debug("Forbinden col names: %s", props)
+            self._logger.debug(f"Forbinden col names: {props}")
 
-            if obj.__class__ == dict:
+            if isinstance(obj, dict):
                 if "_id" in obj:
                     obj["id"] = obj.pop("_id")
                 for k, val in obj.items():
@@ -275,15 +280,11 @@ class SQLThemAll:
                     if k == "":
                         continue
                     if k in (c.name for c in current_table.columns):
-                        has_vals = (
-                            lambda v: isinstance(v, dict)
-                            and v
-                            and True
-                            or v.__class__ == list
-                            and any(v)
-                            or False
-                        )
-                        if val.__class__ in {dict, list} and has_vals(val):
+
+                        def has_vals(v):
+                            return isinstance(v, (dict, list)) and any(v)
+
+                        if has_vals(val):
                             if k not in self.metadata.tables:
                                 self.schema_changed = True
                                 if not simple:
@@ -299,39 +300,23 @@ class SQLThemAll:
                             else:
                                 tbl = self.metadata.tables[k]
                             if val.__class__ == dict:
-                                parse_dict(
-                                    obj=val,
-                                    current_table=tbl,
-                                    exclude_props=set(current_table.name),
-                                )
+                                parse_dict(obj=val, current_table=tbl)
                             else:
                                 for i in val:
                                     if i.__class__ == dict and i:
-                                        parse_dict(
-                                            obj=i,
-                                            current_table=tbl,
-                                            exclude_props=set(
-                                                current_table.name
-                                            ),
-                                        )
+                                        parse_dict(obj=i, current_table=tbl)
                                     else:
                                         parse_dict(
-                                            obj={"value": i},
-                                            current_table=tbl,
-                                            exclude_props=set(
-                                                current_table.name
-                                            ),
+                                            obj={"value": i}, current_table=tbl
                                         )
                         else:
                             self._logger.debug(
-                                "%s already exists in table %s",
-                                k,
-                                current_table.name,
+                                f"{k} exists in table {current_table.name}"
                             )
                             continue
                     else:
                         if k in props:
-                            self._logger.info("Excluded Prop: %s", k)
+                            self._logger.info(f"Excluded Prop: {k}")
                             continue
                         self.schema_changed = True
                         col_types = {
@@ -345,21 +330,15 @@ class SQLThemAll:
                             current_table.append_column(
                                 Column(k, col_types[val.__class__]())
                             )
-                            statement = (
-                                alembic.ddl.base.AddColumn(
-                                    current_table.name,
-                                    Column(k, col_types[val.__class__]()),
-                                )
-                                .compile()
-                                .__str__()
-                            )
-                            self.connection.execute(text(statement))
-                            self._logger.info(
-                                "adding col %s to table %s",
-                                k,
+                            statement = alembic.ddl.base.AddColumn(
                                 current_table.name,
+                                Column(k, col_types[val.__class__]()),
+                            ).compile()
+                            self.connection.execute(text(str(statement)))
+                            self._logger.info(
+                                f"Adding col {k} to table {current_table.name}"
                             )
-                        elif val.__class__ == dict:
+                        elif isinstance(val, dict):
                             if k not in self.metadata.tables:
                                 if not simple:
                                     tbl = self.create_many_to_one(
@@ -373,11 +352,7 @@ class SQLThemAll:
                                     tbl.create(self.engine)
                             else:
                                 tbl = self.metadata.tables[k]
-                            parse_dict(
-                                obj=val,
-                                current_table=tbl,
-                                exclude_props=set(current_table.name),
-                            )
+                            parse_dict(obj=val, current_table=tbl)
 
                         elif val.__class__ == list:
                             if val:
@@ -407,11 +382,7 @@ class SQLThemAll:
                                             tbl.create(self.engine)
                                     else:
                                         tbl = self.metadata.tables[k]
-                                    parse_dict(
-                                        obj=item,
-                                        current_table=tbl,
-                                        exclude_props=set(current_table.name),
-                                    )
+                                    parse_dict(obj=item, current_table=tbl)
 
         if jsonobj.__class__ == list:
             jsonobj = {self.root_table: jsonobj}
@@ -481,7 +452,6 @@ class SQLThemAll:
                         if val:
                             # if True:
                             val = [
-                                # (i.__class__ == dict or i is None)
                                 i.__class__ == dict and i or {"value": i}
                                 for i in val
                             ]
@@ -503,7 +473,7 @@ class SQLThemAll:
             if self.progress:
                 sys.stdout.write(".")
                 sys.stdout.flush()
-            self._logger.debug("%s", pre_ormobjc)
+            self._logger.debug(f"{pre_ormobjc}")
             if not self.simple:
                 query = session.query(self.base.classes[name])
                 in_session = query.filter_by(**pre_ormobjc).first()
@@ -535,7 +505,7 @@ class SQLThemAll:
 
                 if ormobjc:
                     session.add(ormobjc)
-                    self._logger.debug("Adding %s to session", name)
+                    self._logger.debug(f"Adding {name} to session")
                 else:
                     return None
 

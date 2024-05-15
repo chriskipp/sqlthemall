@@ -1,19 +1,64 @@
 [tool.poetry]
 name = "sqlthemall"
 version = "0.1.0"
-description = "Automatic import of JSON data into relational databases"
-authors = ["Christopher Kipp <christopher.kipp@web.de>"]
-license = "GPL-3.0-or-later"
+description = "Automatic import of JSON data into relational databases."
+authors = [
+  "Christopher Kipp <christopher.kipp@web.de>"
+]
+
+keywords = [
+  "json",
+  "SQLAlchemy",
+  "orm"
+]
+
+classifiers = [
+  "Topic :: Database",
+  "Topic :: Utilities",
+  "Environment :: Console",
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Education",
+  "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+  "Natural Language :: English",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12"
+]
+
 readme = "README.md"
+license = "GPL-3.0-or-later"
 
 [tool.poetry.dependencies]
 python = "^3.9"
-alembic = "1.11.1"
-sqlalchemy = "2.0.17"
-ujson = {version = "^5.8.0", optional = true}
+alembic = { version = "1.11.1", optional = false }
+SQLAlchemy = { version = "2.0.17", optional = false }
+ujson = "^5.9.0"
 
+[tool.poetry.dev-dependencies]
+autoflake = { version = "2.1.1", optional = false }
+black = { version = "22.10.0", optional = false }
+flake8 = { version = "6.0.0", optional = false }
+flake8-awesome = { version = "1.3.0", optional = false }
+isort = { version = "5.10.1", optional = false }
+mypy = { version = "0.982", optional = false }
+pyfmt-svtter = { version = "0.1.0", optional = false }
+pylint = { version = "2.15.5", optional = false }
+pytest = { version = "7.2.0", optional = false }
+pytest-cov = { version = "4.0.0", optional = false }
+bandit = { version = "1.7.5", optional = false }
+pydocstringformatter = { version = "0.7.3", optional = false }
+types-PyMySQL = { version = "1.1.0.1", optional = true }
+types-python-dateutil = { version = "2.9.0.20240316", optional = true }
+types-setuptools = { version = "69.2.0.20240317", optional = true }
+types-ujson = { version = "5.9.0.0", optional = true }
+
+#[tool.poetry.extras]
+#dev = ["httpx", "black", "blacken-docs", "pdoc3", "cryptography"]
+#crypto = ["cryptography"]
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
-

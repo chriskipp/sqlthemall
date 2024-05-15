@@ -1,24 +1,28 @@
 #!/usr/bin/env python3
+
+"""This is the entry point for the command line script `sqlthemall`."""
+
 import argparse
 import sys
 import traceback
 import urllib.request
-from urllib.error import URLError
-from io import TextIOWrapper
 from http.client import HTTPResponse
+from io import TextIOWrapper
+from urllib.error import URLError
 
+from _io import TextIOWrapper as TextIO
 
 try:
     import ujson as json
 except ImportError:
     import json  # type: ignore
 
-from typing import Optional, TypeVar, Iterator, Union
+from typing import Iterator, Optional, Union
 
 from sqlthemall.json_importer import SQLThemAll
 
 
-def parse_json(jsonstr: Union[str, bytes]) -> Optional[Union[dict,list]]:
+def parse_json(jsonstr: Union[str, bytes]) -> Optional[Union[dict, list]]:
     """
     Parses JSON from a string or bytes object and returns a python object.
 
@@ -36,7 +40,12 @@ def parse_json(jsonstr: Union[str, bytes]) -> Optional[Union[dict,list]]:
         traceback.print_exc()
         return None
 
-def read_json(source_descriptor: Union[TextIOWrapper, HTTPResponse], lines: bool = False, batch_size: int = 100) -> Iterator[Union[dict, list]]:
+
+def read_json(
+    source_descriptor: Union[TextIOWrapper, TextIO, HTTPResponse],
+    lines: bool = False,
+    batch_size: int = 100,
+) -> Iterator[Optional[Union[dict,list]]]:
     """
     Unifies reading JSON from different sources (url, file, stdin).
 
@@ -46,23 +55,24 @@ def read_json(source_descriptor: Union[TextIOWrapper, HTTPResponse], lines: bool
         batch_size (int): How many lines should be returned per yield.
 
     Returns:
-        Iterator[Union[dict,list]]: Parsed JSON input.
+        Iterator[Optional[dict|list]]: Parsed JSON input.
     """
     if lines is False:
         yield parse_json(source_descriptor.read())
     else:
         while True:
-            lines: list = []
+            _lines: list = []
             for _n in range(batch_size):
                 line = source_descriptor.readline()
                 if not line:
                     break
                 obj = parse_json(line.strip())
                 if obj:
-                    lines.append(obj)
-            if not lines:
+                    _lines.append(obj)
+            if not _lines:
                 break
-            yield lines
+            yield _lines
+
 
 def gen_importer(args: argparse.Namespace) -> SQLThemAll:
     """
@@ -84,36 +94,44 @@ def gen_importer(args: argparse.Namespace) -> SQLThemAll:
         echo=args.echo,
     )
 
-def read_from_source(args: argparse.Namespace) -> Iterator[Union[dict,list]]:
+
+def read_from_source(
+    args: argparse.Namespace,
+) -> Iterator[Optional[Union[dict,list]]]:
     """
-    Wrapper function for read_json which instantiates the source_descriptor
+    Wrapper function for read_json which instantiates the source_descriptor.
+
     depending on the given arguments.
 
     Args:
         args (argparse.Namespace): List of arguments to parse.
 
     Returns:
-        Iterator[Union[dict,list]]: Iterator over the objects provided in the
-        sourde.
+        Iterator[Optional[dict|list]]: Iterator over the objects
+        provided in the sourde.
     """
     try:
         if args.url:
             with urllib.request.urlopen(args.url[0], timeout=300) as res:
-                for j in read_json(res, lines=args.line, batch_size=args.batch_size[0]):
-                    yield j
+                yield from read_json(
+                    res, lines=args.line, batch_size=args.batch_size[0]
+                )
         elif args.file:
             with open(args.file[0]) as f:
-                for j in read_json(f, lines=args.line, batch_size=args.batch_size[0]):
-                    yield j
+                yield from read_json(
+                    f, lines=args.line, batch_size=args.batch_size[0]
+                )
         else:
-            for j in read_json(sys.stdin, lines=args.line, batch_size=args.batch_size[0]):
-                yield j
+            yield from read_json(
+                sys.stdin, lines=args.line, batch_size=args.batch_size[0]
+            )
     except URLError:
         traceback.print_exc()
         sys.exit(3)
-    except Exception:
+    except BaseException as e:
         traceback.print_exc()
-        sys.exit(1)
+        raise e
+
 
 def parse_args(args: list[str]) -> argparse.Namespace:
     """
@@ -224,9 +242,9 @@ def main() -> None:
     importer: SQLThemAll = gen_importer(args=args)
 
     for j in read_from_source(args=args):
-        importer.import_multi_json(j)
+        if j is not None:
+            importer.import_multi_json(j)
 
 
 if __name__ == "__main__":
     main()
-
