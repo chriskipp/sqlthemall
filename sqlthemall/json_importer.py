@@ -106,6 +106,7 @@ class SQLThemAll:
         self.simple = simple
         self.autocommit = autocommit
         self.root_table = str(root_table).lower()
+        self.paths: list = []
 
         self.engine: Engine = create_engine(self.dburl, echo=self.echo)
         self.connection = self.engine.connect()
@@ -138,6 +139,7 @@ class SQLThemAll:
                 ForeignKey(current_table.name + "._id"),
             ),
             extend_existing=True,
+            info={"path": current_table.info["path"] + [name]},
         )
 
     def create_many_to_many(self, name: str, current_table: Table) -> Table:
@@ -162,6 +164,7 @@ class SQLThemAll:
             ),
             Column(name + "_id", ForeignKey(name + "._id")),
             extend_existing=True,
+            info={"path": current_table.info["path"] + [name]},
         )
         return Table(
             name, self.metadata, Column("_id", Integer, primary_key=True)
@@ -188,6 +191,7 @@ class SQLThemAll:
                 ForeignKey(current_table.name + "._id"),
             ),
             extend_existing=True,
+            info={"path": current_table.info["path"] + [name]},
         )
 
     def create_one_to_many(self, name: str, current_table: Table) -> Table:
@@ -211,6 +215,7 @@ class SQLThemAll:
                 ForeignKey(current_table.name + "._id"),
             ),
             extend_existing=True,
+            info={"path": current_table.info["path"] + [name]},
         )
 
     def create_schema(
@@ -247,10 +252,13 @@ class SQLThemAll:
                 self.metadata,
                 Column("_id", Integer, primary_key=True),
                 extend_existing=True,
+                info={"path":[]}
             )
             current_table.create(self.engine)
         else:
             current_table = self.metadata.tables[root_table]
+            if "path" not in current_table.info:
+                current_table.info["path"] = []
 
         def parse_dict(
             obj: dict,
@@ -265,16 +273,7 @@ class SQLThemAll:
                 current_table (Table) : The current_table.
                 simple (bool): Create a simple database schema.
             """
-            if current_table.name in self.base.classes:
-                cls = self.base.classes[current_table.name]
-                props = set(cls.__dict__.keys())
-            else:
-                props = set()
-            self._logger.debug(f"Forbinden col names: {props}")
-
             if isinstance(obj, dict):
-                if "_id" in obj:
-                    obj["id"] = obj.pop("_id")
                 for k, val in obj.items():
                     k = k.lower()
                     if k == "":
@@ -282,7 +281,7 @@ class SQLThemAll:
                     if k in (c.name for c in current_table.columns):
 
                         def has_vals(v):
-                            return isinstance(v, (dict, list)) and any(v)
+                            return isinstance(v, (dict, list)) and len(v) > 0
 
                         if has_vals(val):
                             if k not in self.metadata.tables:
@@ -315,9 +314,6 @@ class SQLThemAll:
                             )
                             continue
                     else:
-                        if k in props:
-                            self._logger.info(f"Excluded Prop: {k}")
-                            continue
                         self.schema_changed = True
                         col_types = {
                             datetime.date: Date,

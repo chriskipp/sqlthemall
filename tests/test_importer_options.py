@@ -6,7 +6,6 @@ from sqlalchemy import Connection, MetaData, create_engine
 from sqlthemall.json_importer import SQLThemAll
 from sqlthemall.main import gen_importer, parse_args, read_from_source
 
-
 DEFAULT_ROOT_TABLE = "main"
 
 required_args = ["-d", "sqlite://"]

@@ -5,3 +5,4 @@ _virtualenv
 build
 r.txt
 .tox
+docs/_build
