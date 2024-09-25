@@ -87,6 +87,7 @@ optional arguments:
 ## Usage Hints/Where to go from here?
 
 While sqlthemall provides the generation of a database scheme as well as the import of data in the JSON format, you might want to use it in combination with software from other repositories:
+
 - [sadisplay](https://github.com/GoodRx/sadisplay) allows you to display the generated database schemes. In combination with sqlthemall this allows you to quickly get a overview of the structure of JSON data
 - [sqlcodegen](https://github.com/agronholm/sqlacodegen) automatically generates the code for SQLAlchemy style python classes that allow directly access of the imported data in a object oriented manner
 - [public-apis](https://github.com/public-apis/public-apis) provides a list of public API's that allow you to retrieve a wide variaty of JSON data

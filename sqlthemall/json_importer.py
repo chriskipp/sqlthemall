@@ -9,8 +9,18 @@ from collections.abc import Iterable
 from typing import Optional, TypeVar
 
 import alembic
-from sqlalchemy import (Boolean, Column, Date, Float, ForeignKey, Integer,
-                        MetaData, String, Table, create_engine)
+from sqlalchemy import (
+    Boolean,
+    Column,
+    Date,
+    Float,
+    ForeignKey,
+    Integer,
+    MetaData,
+    String,
+    Table,
+    create_engine,
+)
 from sqlalchemy.engine import Engine
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import Session
@@ -206,8 +216,11 @@ class SQLThemAll:
         )
 
     def create_schema(
-        self, jsonobj: dict, root_table: str = "", simple: bool = False,
-        no_write = False
+        self,
+        jsonobj: dict,
+        root_table: str = "",
+        simple: bool = False,
+        no_write=False,
     ) -> None:
         """
         Creates table_schema from the structure of a given JSON object.
@@ -348,10 +361,14 @@ class SQLThemAll:
                                 Column(k, col_types[val.__class__]())
                             )
                             if no_write is not True:
-                                statement = alembic.ddl.base.AddColumn(
-                                    current_table.name,
-                                    Column(k, col_types[val.__class__]()),
-                                ).compile().__str__()
+                                statement = (
+                                    alembic.ddl.base.AddColumn(
+                                        current_table.name,
+                                        Column(k, col_types[val.__class__]()),
+                                    )
+                                    .compile()
+                                    .__str__()
+                                )
                                 self.connection.execute(text(statement))
                                 self._logger.info(
                                     "adding col %s to table %s",
@@ -418,7 +435,6 @@ class SQLThemAll:
 
         if no_write is not True:
             self.write_schema()
-
 
     def write_schema(self) -> None:
         """
