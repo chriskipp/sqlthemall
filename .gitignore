@@ -2,6 +2,7 @@
 **/__pycache__
 test.sqlite
 _virtualenv
+_venv
 build
 r.txt
 .tox
