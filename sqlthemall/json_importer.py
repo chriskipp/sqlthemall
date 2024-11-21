@@ -108,7 +108,7 @@ class SQLThemAll:
         self.root_table = str(root_table).lower()
 
         self.engine: Engine = create_engine(self.dburl, echo=self.echo)
-        self.connection = self.engine.connect()
+        self.connection = False
         self.metadata = MetaData()
         self.metadata.reflect(
             self.engine, extend_existing=True, autoload_replace=True
@@ -224,8 +224,8 @@ class SQLThemAll:
             root_table (str): Table name of the JSON object root.
             simple (bool): Create a simple database schema.
         """
-        if self.connection.closed:
-            self.connection = self.engine.connect()
+        if not self.connection:
+            #self.connection = self.engine.connect()
             self.metadata = MetaData()
             self.metadata.reflect(
                 self.engine, extend_existing=True, autoload_replace=True
@@ -248,7 +248,7 @@ class SQLThemAll:
                 Column("_id", Integer, primary_key=True),
                 extend_existing=True,
             )
-            current_table.create(self.engine)
+            #current_table.create(self.engine)
         else:
             current_table = self.metadata.tables[root_table]
 
@@ -291,12 +291,12 @@ class SQLThemAll:
                                     tbl = self.create_many_to_one(
                                         name=k, current_table=current_table
                                     )
-                                    tbl.create(self.engine)
+                                    #tbl.create(self.engine)
                                 else:
                                     tbl = self.create_one_to_one(
                                         name=k, current_table=current_table
                                     )
-                                    tbl.create(self.engine)
+                                    #tbl.create(self.engine)
                             else:
                                 tbl = self.metadata.tables[k]
                             if val.__class__ == dict:
@@ -307,7 +307,7 @@ class SQLThemAll:
                                         parse_dict(obj=i, current_table=tbl)
                                     else:
                                         parse_dict(
-                                            obj={"value": i}, current_table=tbl
+                                            obj={"val": i}, current_table=tbl
                                         )
                         else:
                             self._logger.debug(
@@ -334,7 +334,9 @@ class SQLThemAll:
                                 current_table.name,
                                 Column(k, col_types[val.__class__]()),
                             ).compile()
-                            self.connection.execute(text(str(statement)))
+                            self._logger.info(str(statement))
+                            #with self.engine.connect() as connection:
+                            #    connection.execute(text(str(statement)))
                             self._logger.info(
                                 f"Adding col {k} to table {current_table.name}"
                             )
@@ -344,12 +346,12 @@ class SQLThemAll:
                                     tbl = self.create_many_to_one(
                                         name=k, current_table=current_table
                                     )
-                                    tbl.create(self.engine)
+                                    #tbl.create(self.engine)
                                 else:
                                     tbl = self.create_one_to_one(
                                         name=k, current_table=current_table
                                     )
-                                    tbl.create(self.engine)
+                                    #tbl.create(self.engine)
                             else:
                                 tbl = self.metadata.tables[k]
                             parse_dict(obj=val, current_table=tbl)
@@ -361,7 +363,7 @@ class SQLThemAll:
                                 val = [
                                     item.__class__ == dict
                                     and item
-                                    or {"value": item}
+                                    or {"val": item}
                                     for item in val
                                 ]
                                 val = [i for i in val if i]
@@ -373,13 +375,13 @@ class SQLThemAll:
                                                 name=k,
                                                 current_table=current_table,
                                             )
-                                            tbl.create(self.engine)
+                                            #tbl.create(self.engine)
                                         else:
                                             tbl = self.create_one_to_many(
                                                 name=k,
                                                 current_table=current_table,
                                             )
-                                            tbl.create(self.engine)
+                                            #tbl.create(self.engine)
                                     else:
                                         tbl = self.metadata.tables[k]
                                     parse_dict(obj=item, current_table=tbl)
@@ -452,7 +454,7 @@ class SQLThemAll:
                         if val:
                             # if True:
                             val = [
-                                i.__class__ == dict and i or {"value": i}
+                                i.__class__ == dict and i or {"val": i}
                                 for i in val
                             ]
                             _collection = [
@@ -461,7 +463,7 @@ class SQLThemAll:
                                     make_relational_obj(k, i, session=session)
                                     for i in val
                                 ]
-                                if j and j != {"value": None}
+                                if j and j != {"val": None}
                             ]
                             if not _collection:
                                 continue
@@ -536,7 +538,7 @@ class SQLThemAll:
             jsonobj (dict): Object to parse.
         """
         if not self.connection or self.connection.closed:
-            self.connection = self.engine.connect()
+            #self.connection = self.engine.connect()
             self.metadata = MetaData()
             self.metadata.reflect(
                 self.engine, extend_existing=True, autoload_replace=True
@@ -557,8 +559,6 @@ class SQLThemAll:
         Args:
             jsonobjs (Iterable): Object to parse.
         """
-        if not self.connection or self.connection.closed:
-            self.connection = self.engine.connect()
 
         jsonobj = {self.root_table: jsonobjs}
         self.create_schema(jsonobj)
