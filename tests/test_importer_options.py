@@ -141,8 +141,7 @@ def test_line_argument(file):
 def test_importer_initial_connection():
     """Tests the initial status of the connetion attribute."""
     importer = SQLThemAll()
-    assert importer.connection is not None
-    assert isinstance(importer.connection, Connection)
+    assert importer.connection is False
 
 
 def test_importer_metadata():
