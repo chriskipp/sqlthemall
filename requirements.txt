@@ -1,3 +1,3 @@
-alembic==1.11.1
-SQLAlchemy==2.0.15
-ujson
+alembic==1.15.2
+SQLAlchemy==2.0.40
+ujson==5.10.0

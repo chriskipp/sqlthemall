@@ -1,29 +1,55 @@
 # Makefile
 
-PYTHON = python3
 SOURCEDIR = sqlthemall
 
+VENV           = _virtualenv
+VENV_PYTHON    = $(VENV)/bin/python
+SYSTEM_PYTHON  = $(or $(shell which python3), $(shell which python))
+# If virtualenv exists, use it. If not, find python using PATH
+PYTHON         = $(or $(wildcard $(VENV_PYTHON)), $(SYSTEM_PYTHON))
+MYPY           = $(or $(VENV)/bin/mypy, mypy)
+AUTOFLAKE      = $(or $(VENV)/bin/autoflake, autoflake)
 
-black:
-	black --line-length 79 --safe $(SOURCEDIR)
+## Dev/build environment
 
-autoflake:
-	autoflake -v -v --in-place --recursive --remove-all-unused-imports --ignore-init-module-imports $(SOURCEDIR)
+$(VENV_PYTHON):
+	$(SYSTEM_PYTHON) -m venv $(VENV)
+
+venv: $(VENV_PYTHON)
+
+deps: venv
+	$(PYTHON) -m pip install --upgrade pip
+	$(PYTHON) -m pip install --upgrade setuptools
+	$(PYTHON) -m pip install --upgrade wheel
+	$(PYTHON) -m pip install --upgrade build twine
+	$(PYTHON) -m pip install -r requirements.txt
+	# Dev dependencies
+	$(PYTHON) -m pip install -r requirements-dev.txt
+	$(PYTHON) setup.py install
+
+.PHONY: venv deps
+
+
+black: deps
+	$(PYTHON) -m black --line-length 79 --safe $(SOURCEDIR)
+
+autoflake: deps
+	$(AUTOFLAKE) -v -v --in-place --recursive --remove-all-unused-imports --ignore-init-module-imports $(SOURCEDIR)
 
 isort:
-	isort $(SOURCEDIR)
+	$(PYTHON) -m isort $(SOURCEDIR)
 
-mypy:
-	mypy --install-types --non-interactive --ignore-missing-imports --exclude setup.py $(SOURCEDIR)
+mypy: deps
+	$(MYPY) --install-types --non-interactive --ignore-missing-imports --exclude setup.py $(SOURCEDIR)
 
 pdocstr:
 	pydocstringformatter --linewrap-full-docstring --write  --max-line-length 79 $(SOURCEDIR)
 
-flake:
-	flake8 --statistics --show-source --ignore S310 --requirements-file requirements.txt $(SOURCEDIR)
+flake: deps
+	$(PYTHON) -m flake8 --statistics --show-source --ignore S310 --requirements-file requirements.txt $(SOURCEDIR)
 
-pylint:
-	pylint --rcfile .pylintrc $(SOURCEDIR)
+pylint: deps
+	$(PYTHON) -m pylint --rcfile .pylintrc $(SOURCEDIR)
 
 autolint: black isort mypy pdocstr autoflake clean
 lint: flake pylint
@@ -35,16 +61,16 @@ else
 		$(PYTHON) setup.py install --user
 endif
 
-test: bootstrap
-	sh -c '. _virtualenv/bin/activate; $(PYTHON) -m pip install -r requirements-dev.txt'
-	sh -c '. _virtualenv/bin/activate; pytest -vvv tests'
+test: deps
+	$(PYTHON) -m pip install -r requirements-dev.txt
+	$(PYTHON) -m pytest -vvv tests
 
-cov: bootstrap
-	sh -c '. _virtualenv/bin/activate; $(PYTHON) -m pip install -r requirements-dev.txt'
-	sh -c '. _virtualenv/bin/activate; pytest --cov=sqlthemall --cov-report=html:coverage tests'
+cov: deps
+	$(PYTHON) -m pip install -r requirements-dev.txt
+	$(PYTHON) -m pytest -vvv --cov=sqlthemall --cov-report=html:coverage tests
 
-test-all: _virtualenv
-	tox
+test-all: deps
+	$(PYTHON) -m tox
 
 #upload: test-all build-dist
 #	_virtualenv/bin/twine upload dist/*
@@ -65,7 +91,7 @@ clean:
 	rm -f `find . -type f -name '#*#' `
 	rm -f `find . -type f -name '*.orig' `
 	rm -f `find . -type f -name '*.rej' `
-	rm -rf _virtualenv
+	rm -rf $(VENV)
 	rm -rf _requirements.txt
 	rm -rf _requirements-dev.txt
 	rm -rf .coverage
@@ -80,17 +106,7 @@ clean:
 
 .PHONY: bootstrap
 
-bootstrap: _virtualenv
-	sh -c '. _virtualenv/bin/activate; $(PYTHON) setup.py install'
-
-_virtualenv:
-	python3 -m venv _virtualenv
-	_virtualenv/bin/pip install --upgrade pip
-	_virtualenv/bin/pip install --upgrade setuptools
-	_virtualenv/bin/pip install --upgrade wheel
-	_virtualenv/bin/pip install --upgrade build twine
-
-update_req: bootstrap
+update_req: deps
 	sed 's/[<>=].*/\\s/' requirements.txt requirements-dev.txt > _requirements.txt
 	sh -c '. _virtualenv/bin/activate; ( $(PYTHON) -m pip list --outdated | grep -if _requirements.txt ) || echo "No outdated packages."'
 	rm _requirements.txt

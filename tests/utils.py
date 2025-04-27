@@ -82,7 +82,7 @@ def compare_obj(obj1, obj2):
             if not compare_obj(val1, val2):
                 return False
         elif val1.__class__ == list and val2.__class__ == list:
-            for sval1, sval2 in zip(val1, val2):
+            for sval1, sval2 in zip(sorted(val1), sorted(val2)):
                 if not compare_val(sval1, sval2):
                     return False
         return True
@@ -92,6 +92,7 @@ def compare_obj(obj1, obj2):
 
         for k in obj1:
             if obj1[k].__class__ == list and obj2[k].__class__ == list:
+                obj1[k], obj2[k] = sorted(obj1[k]), sorted(obj2[k])
                 for i in range(len(obj1[k])):
                     if not compare_val(obj1[k][i], obj2[k][i]):
                         return False
