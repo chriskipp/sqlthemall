@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """This module contains the main importer class `SQLThemAll`."""
 
+from collections.abc import Iterable
 import datetime
 import logging
 import sys
 import traceback
-from collections.abc import Iterable
 from typing import Optional
 
 import alembic
@@ -87,7 +87,6 @@ class SQLThemAll:
         echo (bool): Echo the executed SQL statements.
     """
 
-    connection: Optional[Engine] = None
     schema_changed: bool = False
     session = None
     loglevel: str = "INFO"
@@ -110,7 +109,8 @@ class SQLThemAll:
         Args:
             dburl (str): Database URI.
             progress (bool): Show import progress.
-            loglevel (str): Set loglevel - one of "ERROR", "WARNING", "INFO", "DEBUG"(default "INFO")
+            loglevel (str): Set loglevel.
+              Choice from "ERROR", "WARNING", "INFO", "DEBUG" (default "INFO").
             simple (bool): Create a simplified database schema.
             autocommit (bool): Open the database in autocommit mode.
             root_table (str): The name of the table to import the JSON root.
@@ -149,7 +149,7 @@ class SQLThemAll:
         Returns:
             Table: Newly created Table.
         """
-        self._logger.info("Creating table %s", name)
+        self._logger.info(f"Creating table {name}")
         return Table(
             name,
             self.metadata,
@@ -172,8 +172,8 @@ class SQLThemAll:
         Returns:
             Table: Newly created Table.
         """
-        self._logger.info("Creating table %s", name)
-        self._logger.info("Creating bridge %s - %s", current_table.name, name)
+        self._logger.info(f"Creating table {name}")
+        self._logger.info(f"Creating bridge {current_table.name} - {name}")
         Table(
             "bridge_" + current_table.name + "_" + name,
             self.metadata,
@@ -199,7 +199,7 @@ class SQLThemAll:
         Returns:
             Table: Newly created Table.
         """
-        self._logger.info("Creating table %s", name)
+        self._logger.info(f"Creating table {name}")
         return Table(
             name,
             self.metadata,
@@ -222,7 +222,7 @@ class SQLThemAll:
         Returns:
             Table: Newly created Table.
         """
-        self._logger.info("Creating table %s", name)
+        self._logger.info(f"Creating table {name}")
         return Table(
             name,
             self.metadata,
@@ -371,9 +371,7 @@ class SQLThemAll:
                         )
                         if no_write is not True:
                             self._logger.info(
-                                "adding col %s to table %s",
-                                k,
-                                current_table.name,
+                                f"Adding col {k} to table {current_table.name}"
                             )
                             statement = str((
                                 alembic.ddl.base.AddColumn(
@@ -445,7 +443,9 @@ class SQLThemAll:
             jsonobj (dict): Object to parse.
         """
 
-        def make_relational_obj(name, objc, session: Session):
+        def make_relational_obj(
+            name, objc, session: Session, skip_empty: bool = True
+        ):
             """
             Generates a relational object which is insertable from.
 
@@ -455,6 +455,7 @@ class SQLThemAll:
                 name (str): Name of the table that will represent the object.
                 objc (dict): Object to parse.
                 session (Session): Session to use.
+                skip_empty (bool): Skipts objects without any information.
 
             Returns:
                 ormobject: Object defined by the object relational model.
@@ -464,6 +465,9 @@ class SQLThemAll:
             name = name.lower()
             pre_ormobjc, collectiondict = {}, {}
             for k, val in objc.items():
+                if val is None or val == [] or val == {}:
+                    if skip_empty is True:
+                        continue
                 k = k.lower()
                 if val is None:
                     continue
@@ -502,6 +506,7 @@ class SQLThemAll:
                         val,
                     )
             else:
+                self._logger.debug(f"pre_ormobjc: {pre_ormobjc}")
                 ormobjc = self.base.classes[name](**pre_ormobjc)
                 for k, val in collectiondict.items():
                     setattr(

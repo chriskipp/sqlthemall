@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import pytest
+
 try:
     import ujson as json
 except ImportError:
@@ -86,7 +87,9 @@ def tablename(c):
 @pytest.mark.parametrize("root_table", root_tables)
 def test_import_json(obj, simple, root_table):
     """
-    Tests the correcness of the imported data in the database (with simple db schema).
+    Tests the correcness of the imported data in the database (with simple.
+
+    db schema).
 
     Attributes:
         path (str): Path of a JSON file import the data from.
@@ -100,7 +103,6 @@ def test_import_json(obj, simple, root_table):
         if session.query(root_class).all():
             dbobj = session.query(root_class).all()[0]
             for a in [i for i in dir(dbobj) if i.endswith("_collection")]:
-                # dbobj.__getattribute__(a)
                 getattr(dbobj, a)
             assert compare_obj(dbobj2obj(dbobj), obj)
 

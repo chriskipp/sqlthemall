@@ -1,0 +1,26 @@
+ version: '2.1'
+ services:
+   postgres:
+     image: postgres
+     environment:
+       POSTGRES_USER: postgres
+       POSTGRES_PASSWORD: password
+       POSTGRES_DB: postgres
+     ports:
+       - 5432:5432
+
+   mysql:
+     image: mysql
+     environment:
+       MYSQL_USER: mysql
+       MYSQL_PASSWORD: password
+       MYSQL_ROOT_PASSWORD: password
+       MYSQL_DATABASE: mysql
+     ports:
+       - 3306:3306
+
+   rqlite:
+     image: rqlite/rqlite
+     ports:
+       - 4001:4001
+

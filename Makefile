@@ -1,6 +1,12 @@
-# Makefile
+# Some simple testing tasks (sorry, UNIX only).
+
+
+PYTHON_VERSION = 3.10
+PYTHON = python$(PYTHON_VERSION)
+VENV_PATH = $(shell poetry env use --quiet $(PYTHON); poetry env info --path)
 
 SOURCEDIR = sqlthemall
+TESTDIR = tests
 
 VENV           = _virtualenv
 VENV_PYTHON    = $(VENV)/bin/python
@@ -97,9 +103,13 @@ clean:
 	rm -rf .mypy_cache
 	rm -rf .pytest_cache
 	rm -rf .tox
-	rm -f test.sqlite
+	rm -f .pyre_configuration
+	rm -rf .pyre
+	poetry env remove --all
 
-.PHONY: bootstrap
+bootstrap:
+	poetry lock
+	poetry install
 
 update_req: deps
 	sed 's/[<>=].*/\\s/' requirements.txt requirements-dev.txt > _requirements.txt
