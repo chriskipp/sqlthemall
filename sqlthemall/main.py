@@ -135,6 +135,16 @@ def parse_args(args: list[str]) -> argparse.Namespace:
         help="Processes objects in JSONline mode in sequential order",
     )
     parser.add_argument(
+        "--sql",
+        action="store_true",
+        help="Returns the generated schema as sql",
+    )
+    parser.add_argument(
+        "--describe",
+        action="store_true",
+        help="Returns a description of the generated schema as json",
+    )
+    parser.add_argument(
         "-N",
         "--batch_size",
         nargs=1,
@@ -184,9 +194,16 @@ def main() -> None:
 
     if obj is not None:
         try:
-            importer.create_schema(jsonobj=obj)
-            if not args.noimport:
-                importer.insert_data_to_schema(jsonobj=obj)
+            if args.sql is True:
+                importer.create_schema(jsonobj=obj, no_write=True)
+                print(importer.get_sql())
+            elif args.describe is True:
+                importer.create_schema(jsonobj=obj, no_write=True)
+                print(json.dumps(importer.describe_schema(), indent=4))
+            else:
+                importer.create_schema(jsonobj=obj)
+                if not args.noimport:
+                    importer.insert_data_to_schema(jsonobj=obj)
         except BaseException:
             traceback.print_exc()
 

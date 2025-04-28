@@ -25,7 +25,6 @@ deps: venv
 	$(PYTHON) -m pip install -r requirements.txt
 	# Dev dependencies
 	$(PYTHON) -m pip install -r requirements-dev.txt
-	$(PYTHON) setup.py install
 
 .PHONY: venv deps
 
@@ -40,7 +39,7 @@ isort:
 	$(PYTHON) -m isort $(SOURCEDIR)
 
 mypy: deps
-	$(MYPY) --install-types --non-interactive --ignore-missing-imports --exclude setup.py $(SOURCEDIR)
+	$(MYPY) --install-types --non-interactive --ignore-missing-imports $(SOURCEDIR)
 
 pdocstr:
 	pydocstringformatter --linewrap-full-docstring --write  --max-line-length 79 $(SOURCEDIR)
@@ -54,12 +53,8 @@ pylint: deps
 autolint: black isort mypy pdocstr autoflake clean
 lint: flake pylint
 
-install:
-ifeq ($(shell whoami),root)
-		$(PYTHON) setup.py install
-else
-		$(PYTHON) setup.py install --user
-endif
+install: deps
+	$(PYTHON) -m pip install .
 
 test: deps
 	$(PYTHON) -m pip install -r requirements-dev.txt

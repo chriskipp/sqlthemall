@@ -568,6 +568,8 @@ class SQLThemAll:
         return self.sql
 
     def describe_schema(self, metadata=None):
+        # Original code taken from sadisplay:
+        # https://pypi.org/project/sadisplay
 
         def describe_table(table):
             def get_indexes(table):
@@ -656,6 +658,11 @@ class SQLThemAll:
             tables.append(describe_table(table))
             fkeys.extend(get_fkeys(table))
 
-        return tables, fkeys
+        return {
+            "schema": {
+                "tables": tables,
+                "fkeys": fkeys
+            }
+        }
 
 
