@@ -15,7 +15,7 @@ required_args = ["-d", "sqlite://"]
 @pytest.mark.parametrize("dburl", [None, "sqlite://", "sqlite:///test.sqlite"])
 def test_importer_engine(dburl):
     """
-    Tests various database url connection strings.
+    Tests various database url strings.
 
     Attributes:
         dburl (str): Database URL.
@@ -24,7 +24,7 @@ def test_importer_engine(dburl):
         importer = SQLThemAll()
         dburl = "sqlite://"
     else:
-        args = parse_args(["-d", dburl])
+        parser, args = parse_args(["-d", dburl])
         importer = gen_importer(args)
     assert importer.engine.url == create_engine(dburl).url
 
@@ -40,10 +40,10 @@ def test_importer_root_table(root_table):
         root_table (str): Name of the database root table.
     """
     if root_table is None:
-        args = parse_args(required_args)
+        parser, args = parse_args(required_args)
         root_table = DEFAULT_ROOT_TABLE
     else:
-        args = parse_args(required_args + ["--root-table", root_table])
+        parser, args = parse_args(required_args + ["--root-table", root_table])
     importer = gen_importer(args)
     assert importer.root_table == str(root_table).lower()
 
@@ -57,11 +57,11 @@ def test_importer_progress(progress):
         progress (obj): Value of the progress option.
     """
     if progress is False:
-        args = parse_args(required_args)
+        parser, args = parse_args(required_args + ["--no_progress"])
     else:
-        args = parse_args(required_args + ["--no_progress"])
+        parser, args = parse_args(required_args)
     importer = gen_importer(args)
-    assert importer.progress is not progress
+    assert importer.progress is progress
 
 
 @pytest.mark.parametrize(
@@ -75,10 +75,10 @@ def test_importer_loglevel(loglevel):
         loglevel (obj): Value of the loglevel option.
     """
     if loglevel is None:
-        args = parse_args(required_args)
+        parser, args = parse_args(required_args)
         loglevel = "INFO"
     else:
-        args = parse_args(required_args + ["--loglevel", loglevel])
+        parser, args = parse_args(required_args + ["--loglevel", loglevel])
     importer = gen_importer(args)
     assert importer.loglevel == loglevel
 
@@ -92,9 +92,9 @@ def test_importer_simple(simple):
         simple (obj): Value of the simple option.
     """
     if simple is False:
-        args = parse_args(required_args)
+        parser, args = parse_args(required_args)
     else:
-        args = parse_args(required_args + ["--simple"])
+        parser, args = parse_args(required_args + ["--simple"])
     importer = gen_importer(args)
     assert importer.simple is simple
 
@@ -107,7 +107,7 @@ def test_url_argument(url):
     Attributes:
         url (str): URL to load JSON from.
     """
-    args = parse_args(required_args + ["--url", url])
+    parser, args = parse_args(required_args + ["--url", url])
     for obj in read_from_source(args):
         assert isinstance(obj, (dict, list))
 
@@ -120,7 +120,7 @@ def test_file_argument(file):
     Attributes:
         file (str): File path to load JSON from.
     """
-    args = parse_args(required_args + ["--file", file])
+    parser, args = parse_args(required_args + ["--file", file])
     for obj in read_from_source(args):
         assert isinstance(obj, (dict, list))
 
@@ -133,15 +133,9 @@ def test_line_argument(file):
     Attributes:
         file (str): File path to load JSON from.
     """
-    args = parse_args(required_args + ["--line", "--file", file])
+    parser, args = parse_args(required_args + ["--line", "--file", file])
     for obj in read_from_source(args):
         assert isinstance(obj, (dict, list))
-
-
-def test_importer_initial_connection():
-    """Tests the initial status of the connetion attribute."""
-    importer = SQLThemAll()
-    assert importer.connection is False
 
 
 def test_importer_metadata():

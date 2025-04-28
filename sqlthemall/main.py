@@ -10,18 +10,17 @@ from http.client import HTTPResponse
 from io import TextIOWrapper
 from urllib.error import URLError
 
-from _io import TextIOWrapper as TextIO
-
 try:
     import ujson as json
 except ImportError:
     import json  # type: ignore
 
-from typing import Optional, Union
+from typing import Iterator, Optional, Union
 
 from sqlthemall.json_importer import SQLThemAll
 
-def parse_json(jsonstr: str, line=None) -> Optional[Union[str,list]]:
+
+def parse_json(jsonstr: str, line=None) -> Optional[Union[str, list]]:
     """
     Parses JSON from a string or bytes object and returns a python object.
 
@@ -36,25 +35,24 @@ def parse_json(jsonstr: str, line=None) -> Optional[Union[str,list]]:
     try:
         if not jsonstr:
             return None
-        elif line is True:
+        if line is True:
             return [json.loads(s.strip()) for s in jsonstr.splitlines()]
-        elif line is False:
+        if line is False:
             return json.loads(jsonstr.strip())
-        else:
-            try:
-                return json.loads(jsonstr)
-            except json.JSONDecodeError:
-                return [json.loads(s.strip()) for s in jsonstr.splitlines()]
+        try:
+            return json.loads(jsonstr)
+        except json.JSONDecodeError:
+            return [json.loads(s.strip()) for s in jsonstr.splitlines()]
     except json.JSONDecodeError:
         traceback.print_exc()
     return None
 
 
 def read_json(
-    source_descriptor: Union[TextIOWrapper, TextIO, HTTPResponse],
+    source_descriptor: Union[TextIOWrapper, HTTPResponse],
     lines: bool = False,
     batch_size: int = 100,
-) -> Iterator[Optional[Union[dict,list]]]:
+) -> Iterator[Union[dict, list]]:
     """
     Unifies reading JSON from different sources (url, file, stdin).
 
@@ -64,7 +62,7 @@ def read_json(
         batch_size (int): How many lines should be returned per yield.
 
     Returns:
-        Iterator[Optional[dict|list]]: Parsed JSON input.
+        Iterator[dict|list]: Parsed JSON input.
     """
     if lines is False:
         yield parse_json(source_descriptor.read())
@@ -106,7 +104,7 @@ def gen_importer(args: argparse.Namespace) -> SQLThemAll:
 
 def read_from_source(
     args: argparse.Namespace,
-) -> Iterator[Optional[Union[dict,list]]]:
+) -> Iterator[Union[dict, list]]:
     """
     Wrapper function for read_json which instantiates the source_descriptor.
 
@@ -116,7 +114,7 @@ def read_from_source(
         args (argparse.Namespace): List of arguments to parse.
 
     Returns:
-        Iterator[Optional[dict|list]]: Iterator over the objects
+        Iterator[dict|list]: Iterator over the objects
         provided in the sourde.
     """
     try:
@@ -203,7 +201,6 @@ def parse_args(args: list[str]) -> argparse.Namespace:
         "-p",
         "--no_progress",
         action="store_true",
-        default=False,
         help="Do not print progress while importing",
     )
     parser.add_argument(
@@ -217,7 +214,7 @@ def parse_args(args: list[str]) -> argparse.Namespace:
         "--root-table",
         nargs=1,
         dest="root_table",
-        help="Name of the root table to import the root of the JSON object in.",
+        help="Name of the root table to import JSON.",
         default=["main"],
     )
     parser.add_argument(
@@ -225,7 +222,7 @@ def parse_args(args: list[str]) -> argparse.Namespace:
         "--line",
         action="store_true",
         help="Uses JSONline instead of JSON",
-        default=None,
+        default=False,
     )
     parser.add_argument(
         "-S",
@@ -285,7 +282,7 @@ def main() -> None:
         jsonstr = sys.stdin.read().strip()
     else:
         parser.print_help()
-        exit(5)
+        sys.exit(5)
     obj = parse_json(jsonstr, line=args.line)
 
     if isinstance(obj, list):
@@ -295,15 +292,17 @@ def main() -> None:
         try:
             if args.sql is True:
                 importer.create_schema(jsonobj=obj, no_write=True)
-                print(importer.get_sql())
+                sys.stdout.write(importer.get_sql())
             elif args.describe is True:
                 importer.create_schema(jsonobj=obj, no_write=True)
-                print(json.dumps(importer.describe_schema(), indent=4))
+                sys.stdout.write(
+                    json.dumps(importer.describe_schema(), indent=4)
+                )
             else:
                 importer.create_schema(jsonobj=obj)
                 if not args.noimport:
                     importer.insert_data_to_schema(jsonobj=obj)
-        except BaseException:
+        except Exception:
             traceback.print_exc()
 
 

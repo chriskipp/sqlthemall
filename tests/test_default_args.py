@@ -22,7 +22,7 @@ default_args = {
 
 @pytest.mark.parametrize("arg", default_args.keys())
 def test_default_args(arg, default_args=default_args):
-    args = parse_args(['-d', 'sqlite://'])
+    parser, args = parse_args(['-d', 'sqlite://'])
     if isinstance(arg[1], (type(None), bool)):
         assert args.__getattribute__(arg) is default_args[arg]
     else:

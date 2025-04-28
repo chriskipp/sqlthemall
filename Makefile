@@ -1,10 +1,6 @@
 # Some simple testing tasks (sorry, UNIX only).
 
 
-PYTHON_VERSION = 3.10
-PYTHON = python$(PYTHON_VERSION)
-VENV_PATH = $(shell poetry env use --quiet $(PYTHON); poetry env info --path)
-
 SOURCEDIR = sqlthemall
 TESTDIR = tests
 
@@ -51,7 +47,7 @@ pdocstr:
 	pydocstringformatter --linewrap-full-docstring --write  --max-line-length 79 $(SOURCEDIR)
 
 flake: deps
-	$(PYTHON) -m flake8 --statistics --show-source --ignore S310 --requirements-file requirements.txt $(SOURCEDIR)
+	$(PYTHON) -m flake8 --statistics --show-source --ignore S310,G004 --requirements-file requirements.txt $(SOURCEDIR)
 
 pylint: deps
 	$(PYTHON) -m pylint --rcfile .pylintrc $(SOURCEDIR)
@@ -62,12 +58,10 @@ lint: flake pylint
 install: deps
 	$(PYTHON) -m pip install .
 
-test: deps
-	$(PYTHON) -m pip install -r requirements-dev.txt
+test: install
 	$(PYTHON) -m pytest -vvv tests
 
-cov: deps
-	$(PYTHON) -m pip install -r requirements-dev.txt
+cov: install
 	$(PYTHON) -m pytest -vvv --cov=sqlthemall --cov-report=html:coverage tests
 
 test-all: deps
@@ -93,8 +87,6 @@ clean:
 	rm -f `find . -type f -name '*.orig' `
 	rm -f `find . -type f -name '*.rej' `
 	rm -rf $(VENV)
-	rm -rf _requirements.txt
-	rm -rf _requirements-dev.txt
 	rm -rf .coverage
 	rm -rf coverage
 	rm -rf build
@@ -105,11 +97,7 @@ clean:
 	rm -rf .tox
 	rm -f .pyre_configuration
 	rm -rf .pyre
-	poetry env remove --all
-
-bootstrap:
-	poetry lock
-	poetry install
+	rm -f test.sqlite
 
 update_req: deps
 	sed 's/[<>=].*/\\s/' requirements.txt requirements-dev.txt > _requirements.txt

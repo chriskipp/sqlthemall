@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 """This module contains the main importer class `SQLThemAll`."""
 
-from collections.abc import Iterable
 import datetime
 import logging
 import sys
 import traceback
-from typing import Optional
+from collections.abc import Iterable
 
 import alembic
 from sqlalchemy import (
@@ -15,6 +14,7 @@ from sqlalchemy import (
     Date,
     Float,
     ForeignKey,
+    Index,
     Integer,
     MetaData,
     String,
@@ -22,25 +22,22 @@ from sqlalchemy import (
     create_engine,
     create_mock_engine,
 )
-from sqlalchemy.engine import Engine
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import text
 
-def convert_to_dicts(l: list):
+
+def convert_to_dicts(input_list: list) -> list:
     _list = []
-    for item in l:
+    for item in input_list:
         if isinstance(item, dict) and dict:
             _list.append(item)
         elif isinstance(item, list) and item:
-            _list.extend([
-                i for i in
-                convert_to_dicts(item)
-            ])
+            _list.extend(list(convert_to_dicts(item)))
         elif isinstance(item, str) and item:
-            _list.append({"value": item})
+            _list.append({"val": item})
         elif isinstance(item, (float, int, bool)):
-            _list.append({"value": item})
+            _list.append({"val": item})
     return _list
 
 
@@ -91,17 +88,19 @@ class SQLThemAll:
     session = None
     loglevel: str = "INFO"
     progress: bool = True
+    echo: bool = False
     sql: str = ""
+    no_write: bool = False
+    root_table: str = "main"
+    simple: bool = False
+    autocommit: bool = False
 
     def __init__(
         self,
         dburl: str = "sqlite://",
-        progress: bool = True,
-        loglevel: str = "INFO",
         simple: bool = False,
-        autocommit: bool = False,
-        root_table="main",
-        echo: bool = False,
+        root_table: str = "main",
+        **kwargs,
     ) -> None:
         """
         The contructor for SQLThemAll class.
@@ -117,15 +116,23 @@ class SQLThemAll:
             echo (bool): Echo the executed SQL statements.
         """
         self.dburl = dburl
-        self.progress = progress
-        self.loglevel = loglevel
-        self._logger = create_logger("sqlthemall", self.loglevel)
-        self.echo = echo
-        if self.echo:
-            self.progress = False
-        self.simple = simple
-        self.autocommit = autocommit
+        for k in kwargs:
+            if k == "loglevel":
+                self.loglevel = kwargs["loglevel"]
+            if k == "progress":
+                self.progress = kwargs["progress"]
+            if k == "echo":
+                self.echo = kwargs["echo"]
+                if self.echo:
+                    self.progress = False
+            if k == "no_write":
+                self.no_write = kwargs["no_write"]
+            if k == "autocommit":
+                self.autocommit = kwargs["autocommit"]
+
         self.root_table = str(root_table).lower()
+        self.simple = simple
+        self._logger = create_logger("sqlthemall", self.loglevel)
 
         self.engine = create_engine(self.dburl, echo=self.echo)
         if self.autocommit:
@@ -239,7 +246,7 @@ class SQLThemAll:
         jsonobj: dict,
         root_table: str = "",
         simple: bool = False,
-        no_write=False,
+        no_write=None,
     ) -> None:
         """
         Creates table_schema from the structure of a given JSON object.
@@ -263,6 +270,8 @@ class SQLThemAll:
             root_table = self.root_table
         if not simple:
             simple = self.simple
+        if no_write is None:
+            no_write = self.no_write
 
         self.schema_changed = False
 
@@ -292,6 +301,7 @@ class SQLThemAll:
                 current_table (Table) : The current_table.
                 simple (bool): Create a simple database schema.
             """
+
             def get_table(k, current_table, simple, simple_reltype=True):
                 if k not in self.metadata.tables:
                     self.schema_changed = True
@@ -316,9 +326,8 @@ class SQLThemAll:
 
                     if self.no_write is not True:
                         tbl.create(self.engine)
-                else:
-                    tbl = self.metadata.tables[k]
-                return tbl
+                    return tbl
+                return self.metadata.tables[k]
 
             for k, val in obj.items():
                 k = k.lower()
@@ -328,13 +337,9 @@ class SQLThemAll:
                             k=k,
                             current_table=current_table,
                             simple=simple,
-                            simple_reltype=True
+                            simple_reltype=True,
                         )
-                        parse_dict(
-                            obj=val,
-                            current_table=tbl,
-                            simple=simple
-                        )
+                        parse_dict(obj=val, current_table=tbl, simple=simple)
                     elif isinstance(val, list):
                         val = convert_to_dicts(val)
                         for i in val:
@@ -342,13 +347,9 @@ class SQLThemAll:
                                 k=k,
                                 current_table=current_table,
                                 simple=simple,
-                                simple_reltype=False
+                                simple_reltype=False,
                             )
-                            parse_dict(
-                                obj=i,
-                                current_table=tbl,
-                                simple=simple
-                            )
+                            parse_dict(obj=i, current_table=tbl, simple=simple)
                     else:
                         self._logger.debug(
                             "%s already exists in table %s",
@@ -373,11 +374,13 @@ class SQLThemAll:
                             self._logger.info(
                                 f"Adding col {k} to table {current_table.name}"
                             )
-                            statement = str((
-                                alembic.ddl.base.AddColumn(
-                                    current_table.name,
-                                    Column(k, col_types[val.__class__]()),
-                                ).compile())
+                            statement = str(
+                                (
+                                    alembic.ddl.base.AddColumn(
+                                        current_table.name,
+                                        Column(k, col_types[val.__class__]()),
+                                    ).compile()
+                                )
                             )
                             with self.engine.connect() as conn:
                                 conn.execute(text(statement))
@@ -386,13 +389,9 @@ class SQLThemAll:
                             k=k,
                             current_table=current_table,
                             simple=simple,
-                            simple_reltype=True
+                            simple_reltype=True,
                         )
-                        parse_dict(
-                            obj=val,
-                            current_table=tbl,
-                            simple=simple
-                        )
+                        parse_dict(obj=val, current_table=tbl, simple=simple)
 
                     elif isinstance(val, list):
                         val = convert_to_dicts(val)
@@ -401,12 +400,10 @@ class SQLThemAll:
                                 k=k,
                                 current_table=current_table,
                                 simple=simple,
-                                simple_reltype=False
+                                simple_reltype=False,
                             )
                             parse_dict(
-                                obj=item,
-                                current_table=tbl,
-                                simple=simple
+                                obj=item, current_table=tbl, simple=simple
                             )
 
         if isinstance(jsonobj, list):
@@ -471,19 +468,16 @@ class SQLThemAll:
                 k = k.lower()
                 if val is None:
                     continue
-                elif isinstance(val, dict):
+                if isinstance(val, dict):
                     collectiondict[k] = [
                         i
-                        for i in [
-                            make_relational_obj(k, val, session=session)
-                        ]
+                        for i in [make_relational_obj(k, val, session=session)]
                         if i
                     ]
                 elif isinstance(val, list):
                     val = convert_to_dicts(val)
                     collectiondict[k] = [
-                        make_relational_obj(k, i, session=session)
-                        for i in val
+                        make_relational_obj(k, i, session=session) for i in val
                     ]
                 else:
                     pre_ormobjc[k] = val
@@ -521,9 +515,7 @@ class SQLThemAll:
             return ormobjc
 
         if isinstance(jsonobj, list):
-            jsonobj = {
-                self.root_table: jsonobj
-            }
+            jsonobj = {self.root_table: jsonobj}
 
         with Session(self.engine) as session:
             make_relational_obj(
@@ -565,6 +557,7 @@ class SQLThemAll:
     def get_sql(self, engine=None, checkfirst=True):
         def dump(sql, *multiparams, **params):
             self.sql += sql.compile(dialect=engine.dialect).string
+
         if engine is None:
             engine = self.engine
         mock_engine = create_mock_engine(f"{engine.url.drivername}://", dump)
@@ -584,15 +577,12 @@ class SQLThemAll:
                     if not isinstance(index, Index):
                         continue
 
-                    if not show_simple_indexes and len(index.columns) <= 1:
-                        continue
-
-                    indexes.append({
-                        'name':
-                        index.name,
-                        'cols':
-                        get_columns_of_index(index) if show_columns_of_indexes else [],
-                    })
+                    indexes.append(
+                        {
+                            "name": index.name,
+                            "cols": get_columns_of_index(index),
+                        }
+                    )
 
                 return indexes
 
@@ -606,25 +596,24 @@ class SQLThemAll:
 
                 def column_role(column):
                     if column.primary_key:
-                        return 'pk'
-                    elif column.foreign_keys:
-                        return 'fk'
+                        return "pk"
+                    if column.foreign_keys:
+                        return "fk"
+                    return None
 
                 def column_compare(c):
                     prefix = {
-                        'pk': '0',
-                        'fk': '1',
+                        "pk": "0",
+                        "fk": "1",
                     }
-                    return prefix.get(c[2], '2') + c[1]
+                    return prefix.get(c[2], "2") + c[1]
 
                 columns = []
 
                 for col in table.columns:
-                    columns.append((
-                        column_type(col),
-                        col.name,
-                        column_role(col)
-                    ))
+                    columns.append(
+                        (column_type(col), col.name, column_role(col))
+                    )
 
                 return sorted(columns, key=lambda c: column_compare(c))
 
@@ -635,7 +624,7 @@ class SQLThemAll:
                 "name": table.name,
                 "schema": table.schema,
                 "indexes": get_indexes(table),
-                "cols": get_columns(table)
+                "cols": get_columns(table),
             }
 
         # Detect relations by ForeignKey
@@ -644,12 +633,14 @@ class SQLThemAll:
             for col in table.columns:
                 for fk in col.foreign_keys:
                     try:
-                        fkeys.append({
-                            'from': table.name,
-                            'by': col.name,
-                            'to': fk.column.table.name,
-                            'to_col': fk.column.name
-                        })
+                        fkeys.append(
+                            {
+                                "from": table.name,
+                                "by": col.name,
+                                "to": fk.column.table.name,
+                                "to_col": fk.column.name,
+                            }
+                        )
                     except AttributeError:
                         traceback.print_exc()
             return fkeys
@@ -663,11 +654,4 @@ class SQLThemAll:
             tables.append(describe_table(table))
             fkeys.extend(get_fkeys(table))
 
-        return {
-            "schema": {
-                "tables": tables,
-                "fkeys": fkeys
-            }
-        }
-
-
+        return {"schema": {"tables": tables, "fkeys": fkeys}}
