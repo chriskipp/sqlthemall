@@ -50,7 +50,8 @@ def convert_to_dicts(input_list: Union[dict, list], generic_value_string="val") 
             output_list.append({
                 generic_value_string: item
             })
-    return output_list
+    if output_list:
+        return output_list
 
 
 def create_logger(name: str, loglevel: str = "INFO") -> logging.Logger:
@@ -355,6 +356,8 @@ class SQLThemAll:
             for k, val in obj.items():
                 if isinstance(val, (dict, list)):
                     val = convert_to_dicts(val)
+                    if val is None:
+                        continue
                     is_dict = isinstance(val, dict)
                     tbl = get_table(
                         k=k,
@@ -496,6 +499,8 @@ class SQLThemAll:
                     ]
                 elif isinstance(val, list):
                     val = convert_to_dicts(val)
+                    if val is None:
+                        continue
                     collectiondict[k] = [
                         make_relational_obj(k, i, session=session) for i in val
                     ]
