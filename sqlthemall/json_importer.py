@@ -8,10 +8,15 @@ import traceback
 from collections.abc import Iterable
 
 import alembic
+from alembic.migration import MigrationContext
+from alembic.autogenerate import produce_migrations
+from alembic.operations import Operations
+from alembic.operations.ops import ModifyTableOps
 from sqlalchemy import (
     Boolean,
     Column,
     Date,
+    Engine,
     Float,
     ForeignKey,
     Index,
@@ -25,20 +30,27 @@ from sqlalchemy import (
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import text
+from typing import Union
 
 
-def convert_to_dicts(input_list: list) -> list:
-    _list = []
+def convert_to_dicts(input_list: Union[dict, list], generic_value_string="val") -> Union[dict, list]:
+    if isinstance(input_list, dict):
+        return input_list
+    output_list = []
     for item in input_list:
-        if isinstance(item, dict) and dict:
-            _list.append(item)
-        elif isinstance(item, list) and item:
-            _list.extend(list(convert_to_dicts(item)))
+        if isinstance(item, dict) and item:
+            output_list.append(item)
+        elif isinstance(item, list):
+            output_list.extend(convert_to_dicts(item))
         elif isinstance(item, str) and item:
-            _list.append({"val": item})
+            output_list.append({
+                generic_value_string: item
+            })
         elif isinstance(item, (float, int, bool)):
-            _list.append({"val": item})
-    return _list
+            output_list.append({
+                generic_value_string: item
+            })
+    return output_list
 
 
 def create_logger(name: str, loglevel: str = "INFO") -> logging.Logger:
@@ -165,6 +177,10 @@ class SQLThemAll:
                 current_table.name + "_id",
                 ForeignKey(current_table.name + "._id"),
             ),
+            Index(
+                f"idx_{name}_{current_table.name}_id",
+                current_table.name + "_id",
+            ),
             extend_existing=True,
         )
 
@@ -189,10 +205,16 @@ class SQLThemAll:
                 ForeignKey(current_table.name + "._id"),
             ),
             Column(name + "_id", ForeignKey(name + "._id")),
+            Index(
+                f"idx_{name}_{current_table.name}_id",
+                name + "_id",
+            ),
             extend_existing=True,
         )
         return Table(
-            name, self.metadata, Column("_id", Integer, primary_key=True)
+            name,
+            self.metadata,
+            Column("_id", Integer, primary_key=True)
         )
 
     def create_one_to_one(self, name: str, current_table: Table) -> Table:
@@ -214,6 +236,10 @@ class SQLThemAll:
             Column(
                 current_table.name + "_id",
                 ForeignKey(current_table.name + "._id"),
+            ),
+            Index(
+                f"idx_{name}_{current_table.name}_id",
+                current_table.name + "_id",
             ),
             extend_existing=True,
         )
@@ -238,15 +264,19 @@ class SQLThemAll:
                 current_table.name + "_id",
                 ForeignKey(current_table.name + "._id"),
             ),
+            Index(
+                f"idx_{name}_{current_table.name}_id",
+                current_table.name + "_id",
+            ),
             extend_existing=True,
         )
 
     def create_schema(
         self,
         jsonobj: dict,
-        root_table: str = "",
-        simple: bool = False,
-        no_write=None,
+        root_table: str = None,
+        simple: bool = None,
+        no_write: bool = None,
     ) -> None:
         """
         Creates table_schema from the structure of a given JSON object.
@@ -257,18 +287,9 @@ class SQLThemAll:
             simple (bool): Create a simple database schema.
             no_write (bool): Do not write the created schema to the database.
         """
-        self.metadata = MetaData()
-        self.metadata.reflect(
-            self.engine, extend_existing=True, autoload_replace=True
-        )
-        self.base = automap_base(metadata=self.metadata)
-        self.base.prepare(self.engine)
-        self.classes = self.base.classes
-        self.no_write = no_write
-
-        if not root_table:
+        if root_table is None:
             root_table = self.root_table
-        if not simple:
+        if simple is None:
             simple = self.simple
         if no_write is None:
             no_write = self.no_write
@@ -283,8 +304,6 @@ class SQLThemAll:
                 Column("_id", Integer, primary_key=True),
                 extend_existing=True,
             )
-            if no_write is not True:
-                current_table.create(self.engine)
         else:
             current_table = self.metadata.tables[root_table]
 
@@ -301,7 +320,6 @@ class SQLThemAll:
                 current_table (Table) : The current_table.
                 simple (bool): Create a simple database schema.
             """
-
             def get_table(k, current_table, simple, simple_reltype=True):
                 if k not in self.metadata.tables:
                     self.schema_changed = True
@@ -323,112 +341,116 @@ class SQLThemAll:
                             tbl = self.create_one_to_many(
                                 name=k, current_table=current_table
                             )
-
-                    if self.no_write is not True:
-                        tbl.create(self.engine)
                     return tbl
                 return self.metadata.tables[k]
 
-            for k, val in obj.items():
-                k = k.lower()
-                if k in current_table.columns:
-                    if isinstance(val, dict) and val:
-                        tbl = get_table(
-                            k=k,
-                            current_table=current_table,
-                            simple=simple,
-                            simple_reltype=True,
-                        )
-                        parse_dict(obj=val, current_table=tbl, simple=simple)
-                    elif isinstance(val, list):
-                        val = convert_to_dicts(val)
-                        for i in val:
-                            tbl = get_table(
-                                k=k,
-                                current_table=current_table,
-                                simple=simple,
-                                simple_reltype=False,
-                            )
-                            parse_dict(obj=i, current_table=tbl, simple=simple)
-                    else:
-                        self._logger.debug(
-                            "%s already exists in table %s",
-                            k,
-                            current_table.name,
-                        )
-                        continue
-                else:
-                    self.schema_changed = True
-                    col_types = {
-                        datetime.date: Date,
-                        str: String,
-                        bool: Boolean,
-                        int: Integer,
-                        float: Float,
-                    }
-                    if type(val) in col_types:
-                        current_table.append_column(
-                            Column(k, col_types[val.__class__]())
-                        )
-                        if no_write is not True:
-                            self._logger.info(
-                                f"Adding col {k} to table {current_table.name}"
-                            )
-                            statement = str(
-                                (
-                                    alembic.ddl.base.AddColumn(
-                                        current_table.name,
-                                        Column(k, col_types[val.__class__]()),
-                                    ).compile()
-                                )
-                            )
-                            with self.engine.connect() as conn:
-                                conn.execute(text(statement))
-                    elif isinstance(val, dict):
-                        tbl = get_table(
-                            k=k,
-                            current_table=current_table,
-                            simple=simple,
-                            simple_reltype=True,
-                        )
-                        parse_dict(obj=val, current_table=tbl, simple=simple)
+            col_types = {
+                datetime.date: Date,
+                str: String,
+                bool: Boolean,
+                int: Integer,
+                float: Float,
+            }
 
-                    elif isinstance(val, list):
-                        val = convert_to_dicts(val)
-                        for item in val:
-                            tbl = get_table(
-                                k=k,
-                                current_table=current_table,
-                                simple=simple,
-                                simple_reltype=False,
-                            )
-                            parse_dict(
-                                obj=item, current_table=tbl, simple=simple
-                            )
+            for k, val in obj.items():
+                if isinstance(val, (dict, list)):
+                    val = convert_to_dicts(val)
+                    is_dict = isinstance(val, dict)
+                    tbl = get_table(
+                        k=k,
+                        current_table=current_table,
+                        simple=simple,
+                        simple_reltype=is_dict,
+                    )
+                    if is_dict:
+                        parse_dict(obj=val, current_table=tbl, simple=simple)
+                    else:
+                        for i in val:
+                            parse_dict(obj=i, current_table=tbl, simple=simple)
+                elif k not in current_table.columns and type(val) in col_types:
+                    self._logger.info(
+                        f"Adding col {k} to table {current_table.name}"
+                    )
+                    self.schema_changed = True
+                    current_table.append_column(
+                        Column(k, col_types[val.__class__]())
+                    )
 
         if isinstance(jsonobj, list):
             jsonobj = {self.root_table: jsonobj}
         parse_dict(obj=jsonobj)
 
-        if no_write is not True:
-            self.write_schema()
+        if self.schema_changed:
+            self.base = automap_base(metadata=self.metadata)
+            self.base.prepare(self.engine)
+            self.classes = self.base.classes
+
+            no_write is True or self.write_schema()
+
+    def _reflect(self, engine: Engine = None) -> MetaData:
+        """
+        Writes the given metadata object to the database.
+
+        Args:
+            metadata (MetaData): Metadata tp write.
+        """
+        if engine is None:
+            engine = self.engine
+        metadata = MetaData()
+        metadata.reflect(
+            engine,
+            extend_existing=True,
+            autoload_replace=True
+        )
+        return metadata
+
+    def read_schema(self) -> None:
+        """
+        Writes the given metadata object to the database.
+
+        Args:
+            metadata (MetaData): Metadata tp write.
+        """
+        self.metadata = self._reflect()
 
     def write_schema(self) -> None:
         """
         Writes the given metadata object to the database.
 
         Args:
-            metadata (Metadata): Metadata tp write.
+            metadata (MetaData): Metadata tp write.
         """
-        if self.schema_changed:
-            self.metadata.create_all(self.engine)
-            self.metadata.reflect(
-                self.engine, extend_existing=True, autoload_replace=True
+        with self.engine.connect() as conn:
+            mc = MigrationContext.configure(
+                connection=conn
             )
+            migrations = produce_migrations(mc, self.metadata)
+            operations = Operations(mc)
+
+            use_batch = self.engine.name == "sqlite"
+            stack = [migrations.upgrade_ops]
+            while stack:
+                elem = stack.pop(0)
+
+                if use_batch and isinstance(elem, ModifyTableOps):
+                    with operations.batch_alter_table(
+                        elem.table_name, schema=elem.schema
+                    ) as batch_ops:
+                        for table_elem in elem.ops:
+                            batch_ops.invoke(table_elem)
+                elif hasattr(elem, "ops"):
+                    stack.extend(elem.ops)
+                else:
+                    operations.invoke(elem)
+            try:
+                conn.commit()
+            except:
+                traceback.print_exc()
+
             self.base = automap_base(metadata=self.metadata)
             self.base.prepare(self.engine)
             self.classes = self.base.classes
-        self.schema_changed = False
+            self.schema_changed = False
 
     def insert_data_to_schema(self, jsonobj: dict) -> None:
         """
@@ -459,13 +481,11 @@ class SQLThemAll:
             """
             if not isinstance(objc, dict) or not objc:
                 return None
-            name = name.lower()
             pre_ormobjc, collectiondict = {}, {}
             for k, val in objc.items():
                 if val is None or val == [] or val == {}:
                     if skip_empty is True:
                         continue
-                k = k.lower()
                 if val is None:
                     continue
                 if isinstance(val, dict):
@@ -480,7 +500,8 @@ class SQLThemAll:
                         make_relational_obj(k, i, session=session) for i in val
                     ]
                 else:
-                    pre_ormobjc[k] = val
+                    if hasattr(self.base.classes[name], k):
+                        pre_ormobjc[k] = val
 
             if self.progress:
                 sys.stdout.write(".")
@@ -513,6 +534,14 @@ class SQLThemAll:
                 self._logger.debug(f"Adding %s to session {name}")
 
             return ormobjc
+
+        self.metadata = MetaData()
+        self.metadata.reflect(
+            self.engine, extend_existing=True, autoload_replace=True
+        )
+        self.base = automap_base(metadata=self.metadata)
+        self.base.prepare(self.engine)
+        self.classes = self.base.classes
 
         if isinstance(jsonobj, list):
             jsonobj = {self.root_table: jsonobj}

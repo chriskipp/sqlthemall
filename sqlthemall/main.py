@@ -285,9 +285,6 @@ def main() -> None:
         sys.exit(5)
     obj = parse_json(jsonstr, line=args.line)
 
-    if isinstance(obj, list):
-        obj = {args.root_table[0]: obj}
-
     if obj is not None:
         try:
             if args.sql is True:
@@ -298,7 +295,17 @@ def main() -> None:
                 sys.stdout.write(
                     json.dumps(importer.describe_schema(), indent=4)
                 )
+            elif args.sequential and isinstance(obj, list):
+                for o in obj:
+                    print(o)
+                    importer.create_schema(jsonobj=o)
+                    if not args.noimport:
+                        importer.insert_data_to_schema(jsonobj=o)
+
             else:
+                if isinstance(obj, list):
+                    obj = {args.root_table[0]: obj}
+
                 importer.create_schema(jsonobj=obj)
                 if not args.noimport:
                     importer.insert_data_to_schema(jsonobj=obj)
