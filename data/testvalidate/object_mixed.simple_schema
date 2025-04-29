@@ -1,1 +1,1 @@
-[Table('main', MetaData(), Column('_id', INTEGER(), table=<main>, primary_key=True, nullable=False), Column('a', VARCHAR(), table=<main>), Column('b', INTEGER(), table=<main>), Column('c', BOOLEAN(), table=<main>), Column('d', BOOLEAN(), table=<main>), schema=None)]
+[Table('main', MetaData(), Column('_id', Integer(), table=<main>, primary_key=True, nullable=False), Column('a', String(), table=<main>), Column('b', Integer(), table=<main>), Column('c', Boolean(), table=<main>), Column('d', Boolean(), table=<main>), schema=None)]
