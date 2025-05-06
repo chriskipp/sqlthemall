@@ -1,0 +1,8 @@
+
+CREATE TABLE main (
+	_id INTEGER NOT NULL, 
+	a BOOLEAN, 
+	b BOOLEAN, 
+	PRIMARY KEY (_id)
+)
+

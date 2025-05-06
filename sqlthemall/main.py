@@ -33,8 +33,6 @@ def parse_json(jsonstr: str, line=None) -> Optional[Union[str, list]]:
     if not jsonstr:
         return None
     try:
-        if not jsonstr:
-            return None
         if line is True:
             return [json.loads(s.strip()) for s in jsonstr.splitlines()]
         if line is False:
@@ -86,7 +84,8 @@ def gen_importer(args: argparse.Namespace) -> SQLThemAll:
     Generates the Importer depending on the given arguments.
 
     Args:
-        args (argparse.Namespace): List of arguments to parse.
+        args (argparse.Namespace): Parsed arguments used to
+            initialize the importer.
 
     Returns:
         SQLThemAll: Importer.
@@ -128,14 +127,14 @@ def read_from_source(
                 yield from read_json(
                     f, lines=args.line, batch_size=args.batch_size[0]
                 )
-        else:
+        elif not sys.stdin.isatty():
             yield from read_json(
                 sys.stdin, lines=args.line, batch_size=args.batch_size[0]
             )
     except URLError:
         traceback.print_exc()
         sys.exit(3)
-    except BaseException as e:
+    except Exception as e:
         traceback.print_exc()
         raise e
 
@@ -166,7 +165,8 @@ def parse_args(args: list[str]) -> argparse.Namespace:
     input_group.add_argument(
         "-f",
         "--file",
-        nargs=1,
+        nargs="+",
+        type=str,
         dest="file",
         help="File to read JSON from (default: stdin)",
     )
@@ -241,6 +241,11 @@ def parse_args(args: list[str]) -> argparse.Namespace:
         help="Returns a description of the generated schema as json",
     )
     parser.add_argument(
+        "--dot",
+        action="store_true",
+        help="Returns a dot representation of the generated schema",
+    )
+    parser.add_argument(
         "-N",
         "--batch_size",
         nargs=1,
@@ -257,60 +262,36 @@ def main() -> None:
     """Main function."""
     parser, args = parse_args(sys.argv[1:])
 
-    importer = SQLThemAll(
-        dburl=args.dburl[0],
-        loglevel=args.loglevel[0],
-        progress=not args.no_progress,
-        autocommit=args.autocommit,
-        simple=args.simple,
-        root_table=args.root_table[0],
-        echo=args.echo,
-    )
+    importer = gen_importer(args=args)
 
-    if args.url:
-        try:
-            if args.url[0].startswith("http"):
-                with urllib.request.urlopen(args.url[0], timeout=300) as res:
-                    jsonstr = res.read()
-        except URLError:
-            traceback.print_exc()
-            sys.exit(3)
-    elif args.file:
-        with open(args.file[0], encoding="utf-8") as f:
-            jsonstr = f.read().strip()
-    elif not sys.stdin.isatty():
-        jsonstr = sys.stdin.read().strip()
-    else:
-        parser.print_help()
-        sys.exit(5)
-    obj = parse_json(jsonstr, line=args.line)
+    it = read_from_source(args=args)
 
-    if obj is not None:
-        try:
-            if args.sql is True:
-                importer.create_schema(jsonobj=obj, no_write=True)
-                sys.stdout.write(importer.get_sql())
-            elif args.describe is True:
-                importer.create_schema(jsonobj=obj, no_write=True)
-                sys.stdout.write(
-                    json.dumps(importer.describe_schema(), indent=4)
-                )
-            elif args.sequential and isinstance(obj, list):
-                for o in obj:
-                    print(o)
-                    importer.create_schema(jsonobj=o)
-                    if not args.noimport:
-                        importer.insert_data_to_schema(jsonobj=o)
+    for o in it:
+        print(len(o))
+        if args.sql is True:
+            importer.create_schema(jsonobj=o, no_write=True)
+        elif args.describe is True:
+            importer.create_schema(jsonobj=o, no_write=True)
+        elif args.dot is True:
+            importer.create_schema(jsonobj=o, no_write=True)
+        else:
+            if isinstance(o, list):
+                o = {args.root_table[0]: o}
 
-            else:
-                if isinstance(obj, list):
-                    obj = {args.root_table[0]: obj}
+            importer.create_schema(jsonobj=o)
+            if not args.noimport:
+                importer.insert_data_to_schema(jsonobj=o)
 
-                importer.create_schema(jsonobj=obj)
-                if not args.noimport:
-                    importer.insert_data_to_schema(jsonobj=obj)
-        except Exception:
-            traceback.print_exc()
+    if args.sql is True:
+        sys.stdout.write(importer.get_sql())
+    elif args.describe is True:
+        sys.stdout.write(
+            json.dumps(importer.describe_schema(), indent=4)
+        )
+    elif args.dot is True:
+        sys.stdout.write(
+            importer.render_dot() + '\n'
+        )
 
 
 if __name__ == "__main__":

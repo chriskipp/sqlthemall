@@ -1,1 +1,0 @@
-[Table('main', MetaData(), Column('_id', Integer(), table=<main>, primary_key=True, nullable=False), Column('a', Float(), table=<main>), Column('b', Float(), table=<main>), Column('c', Float(), table=<main>), schema=None)]

@@ -1,0 +1,73 @@
+{
+    "schema": {
+        "tables": [
+            {
+                "name": "a",
+                "schema": null,
+                "indexes": [],
+                "cols": [
+                    [
+                        "INTEGER",
+                        "_id",
+                        "pk"
+                    ],
+                    [
+                        "FLOAT",
+                        "val",
+                        null
+                    ]
+                ]
+            },
+            {
+                "name": "main",
+                "schema": null,
+                "indexes": [],
+                "cols": [
+                    [
+                        "INTEGER",
+                        "_id",
+                        "pk"
+                    ]
+                ]
+            },
+            {
+                "name": "bridge_main_a",
+                "schema": null,
+                "indexes": [
+                    {
+                        "name": "idx_a_main_id",
+                        "cols": [
+                            "a_id"
+                        ]
+                    }
+                ],
+                "cols": [
+                    [
+                        "INTEGER",
+                        "a_id",
+                        "fk"
+                    ],
+                    [
+                        "INTEGER",
+                        "main_id",
+                        "fk"
+                    ]
+                ]
+            }
+        ],
+        "fkeys": [
+            {
+                "from": "bridge_main_a",
+                "by": "main_id",
+                "to": "main",
+                "to_col": "_id"
+            },
+            {
+                "from": "bridge_main_a",
+                "by": "a_id",
+                "to": "a",
+                "to_col": "_id"
+            }
+        ]
+    }
+}

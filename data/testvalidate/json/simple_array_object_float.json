@@ -1,0 +1,34 @@
+{
+    "schema": {
+        "tables": [
+            {
+                "name": "main",
+                "schema": null,
+                "indexes": [],
+                "cols": [
+                    [
+                        "INTEGER",
+                        "_id",
+                        "pk"
+                    ],
+                    [
+                        "FLOAT",
+                        "a",
+                        null
+                    ],
+                    [
+                        "FLOAT",
+                        "b",
+                        null
+                    ],
+                    [
+                        "FLOAT",
+                        "c",
+                        null
+                    ]
+                ]
+            }
+        ],
+        "fkeys": []
+    }
+}

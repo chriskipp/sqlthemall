@@ -1,0 +1,7 @@
+
+CREATE TABLE main (
+	_id INTEGER NOT NULL, 
+	val VARCHAR, 
+	PRIMARY KEY (_id)
+)
+

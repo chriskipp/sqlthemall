@@ -1,0 +1,55 @@
+{
+    "schema": {
+        "tables": [
+            {
+                "name": "main",
+                "schema": null,
+                "indexes": [],
+                "cols": [
+                    [
+                        "INTEGER",
+                        "_id",
+                        "pk"
+                    ]
+                ]
+            },
+            {
+                "name": "a",
+                "schema": null,
+                "indexes": [
+                    {
+                        "name": "idx_a_main_id",
+                        "cols": [
+                            "main_id"
+                        ]
+                    }
+                ],
+                "cols": [
+                    [
+                        "INTEGER",
+                        "_id",
+                        "pk"
+                    ],
+                    [
+                        "INTEGER",
+                        "main_id",
+                        "fk"
+                    ],
+                    [
+                        "VARCHAR",
+                        "val",
+                        null
+                    ]
+                ]
+            }
+        ],
+        "fkeys": [
+            {
+                "from": "a",
+                "by": "main_id",
+                "to": "main",
+                "to_col": "_id"
+            }
+        ]
+    }
+}

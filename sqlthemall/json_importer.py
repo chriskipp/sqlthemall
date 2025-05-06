@@ -6,52 +6,53 @@ import logging
 import sys
 import traceback
 from collections.abc import Iterable
+from typing import Union, Optional
 
-import alembic
-from alembic.migration import MigrationContext
 from alembic.autogenerate import produce_migrations
+from alembic.migration import MigrationContext
 from alembic.operations import Operations
-from alembic.operations.ops import ModifyTableOps
-from sqlalchemy import (
-    Boolean,
-    Column,
-    Date,
-    Engine,
-    Float,
-    ForeignKey,
-    Index,
-    Integer,
-    MetaData,
-    String,
-    Table,
-    create_engine,
-    create_mock_engine,
-)
+from alembic.operations.ops import ModifyTableOps, UpgradeOps
+from sqlalchemy import (Boolean, Column, Date, Engine, Float, ForeignKey,
+                        Index, Integer, MetaData, String, Table, create_engine,
+                        create_mock_engine)
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import Session
-from sqlalchemy.sql import text
-from typing import Union
+from jinja2 import Template
+import os
 
 
-def convert_to_dicts(input_list: Union[dict, list], generic_value_string="val") -> Union[dict, list]:
+def convert_to_dicts(
+    input_list: Union[dict, list], generic_value_string="val"
+) -> Union[dict, list]:
+    """
+    Converts the given input to a dict or list of dicts.
+
+    This function is mainly needed to convert lists of scalars
+    into a list of dicts with the scalar value assigned to the
+    key `generic_value_string` which will bi used as the column
+    name in of the resulting table.
+
+    Args:
+        input_list (dict, list): Input to convert.
+        generic_value_string (str): Key to assign scalar
+            values to (defaults to "val").
+
+    Returns:
+        Union[dict, list]
+    """
     if isinstance(input_list, dict):
         return input_list
     output_list = []
     for item in input_list:
         if isinstance(item, dict) and item:
             output_list.append(item)
-        elif isinstance(item, list):
+        elif isinstance(item, list) and item:
             output_list.extend(convert_to_dicts(item))
         elif isinstance(item, str) and item:
-            output_list.append({
-                generic_value_string: item
-            })
+            output_list.append({generic_value_string: item})
         elif isinstance(item, (float, int, bool)):
-            output_list.append({
-                generic_value_string: item
-            })
-    if output_list:
-        return output_list
+            output_list.append({generic_value_string: item})
+    return output_list
 
 
 def create_logger(name: str, loglevel: str = "INFO") -> logging.Logger:
@@ -213,9 +214,7 @@ class SQLThemAll:
             extend_existing=True,
         )
         return Table(
-            name,
-            self.metadata,
-            Column("_id", Integer, primary_key=True)
+            name, self.metadata, Column("_id", Integer, primary_key=True)
         )
 
     def create_one_to_one(self, name: str, current_table: Table) -> Table:
@@ -275,9 +274,9 @@ class SQLThemAll:
     def create_schema(
         self,
         jsonobj: dict,
-        root_table: str = None,
-        simple: bool = None,
-        no_write: bool = None,
+        root_table: Optional[str] = None,
+        simple: Optional[bool] = None,
+        no_write: Optional[bool] = None,
     ) -> None:
         """
         Creates table_schema from the structure of a given JSON object.
@@ -321,6 +320,7 @@ class SQLThemAll:
                 current_table (Table) : The current_table.
                 simple (bool): Create a simple database schema.
             """
+
             def get_table(k, current_table, simple, simple_reltype=True):
                 if k not in self.metadata.tables:
                     self.schema_changed = True
@@ -356,16 +356,15 @@ class SQLThemAll:
             for k, val in obj.items():
                 if isinstance(val, (dict, list)):
                     val = convert_to_dicts(val)
-                    if val is None:
+                    if not val:
                         continue
-                    is_dict = isinstance(val, dict)
                     tbl = get_table(
                         k=k,
                         current_table=current_table,
                         simple=simple,
-                        simple_reltype=is_dict,
+                        simple_reltype=isinstance(val, dict),
                     )
-                    if is_dict:
+                    if isinstance(val, dict):
                         parse_dict(obj=val, current_table=tbl, simple=simple)
                     else:
                         for i in val:
@@ -388,9 +387,10 @@ class SQLThemAll:
             self.base.prepare(self.engine)
             self.classes = self.base.classes
 
-            no_write is True or self.write_schema()
+            if no_write is not True:
+               self.write_schema()
 
-    def _reflect(self, engine: Engine = None) -> MetaData:
+    def _reflect(self, engine: Optional[Engine] = None) -> MetaData:
         """
         Writes the given metadata object to the database.
 
@@ -400,11 +400,7 @@ class SQLThemAll:
         if engine is None:
             engine = self.engine
         metadata = MetaData()
-        metadata.reflect(
-            engine,
-            extend_existing=True,
-            autoload_replace=True
-        )
+        metadata.reflect(engine, extend_existing=True, autoload_replace=True)
         return metadata
 
     def read_schema(self) -> None:
@@ -424,9 +420,7 @@ class SQLThemAll:
             metadata (MetaData): Metadata tp write.
         """
         with self.engine.connect() as conn:
-            mc = MigrationContext.configure(
-                connection=conn
-            )
+            mc = MigrationContext.configure(connection=conn)
             migrations = produce_migrations(mc, self.metadata)
             operations = Operations(mc)
 
@@ -441,13 +435,13 @@ class SQLThemAll:
                     ) as batch_ops:
                         for table_elem in elem.ops:
                             batch_ops.invoke(table_elem)
-                elif hasattr(elem, "ops"):
+                elif hasattr(elem, 'ops'):
                     stack.extend(elem.ops)
                 else:
                     operations.invoke(elem)
             try:
                 conn.commit()
-            except:
+            except Exception:
                 traceback.print_exc()
 
             self.base = automap_base(metadata=self.metadata)
@@ -596,12 +590,19 @@ class SQLThemAll:
             engine = self.engine
         mock_engine = create_mock_engine(f"{engine.url.drivername}://", dump)
         self.sql = ""
-        self.metadata.create_all(mock_engine, checkfirst=checkfirst)
+        self.metadata.create_all(bind=mock_engine, checkfirst=checkfirst)
         return self.sql
 
-    def describe_schema(self, metadata=None):
-        # Original code taken from sadisplay:
-        # https://pypi.org/project/sadisplay
+    def describe_schema(self, metadata: Optional[MetaData] = None) -> str:
+        """
+        Describes the provided metadata.
+
+        Original code taken from sadisplay:
+        https://pypi.org/project/sadisplay
+
+        Args:
+            metadata (MetaData): MetaData to describe.
+        """
 
         def describe_table(table):
             def get_indexes(table):
@@ -689,3 +690,13 @@ class SQLThemAll:
             fkeys.extend(get_fkeys(table))
 
         return {"schema": {"tables": tables, "fkeys": fkeys}}
+
+    def render_dot(self, opts={}) -> str:
+        """
+        Renders current MetaData as dot.
+
+        """
+        with open(os.path.dirname(__file__) + '/sadisplay.dot.j2') as f:
+            t = Template(f.read())
+        return t.render(self.describe_schema(), opts={"bgcolor": "lightyellow"})
+

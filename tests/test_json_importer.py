@@ -38,10 +38,40 @@ def test_schema_generation(path):
         path (str): Path of a JSON file to create the schema from.
     """
     jsonobj = json.loads(readfile("data/testdata/" + path + ".json"))
-    schema = readfile("data/testvalidate/" + path + ".schema")
-    importer = SQLThemAll()
+    schema = readfile("data/testvalidate/json/nosimple_" + path + ".json")
+    importer = SQLThemAll(simple=False, no_write=True)
     importer.create_schema(jsonobj)
-    assert str(importer.metadata.sorted_tables) == schema
+    assert json.dumps(importer.describe_schema(), indent=4).strip() == schema
+
+
+@pytest.mark.parametrize("path", paths)
+def test_get_sql(path):
+    """
+    Tests the correcness of the generated db schema.
+
+    Attributes:
+        path (str): Path of a JSON file to create the schema from.
+    """
+    jsonobj = json.loads(readfile("data/testdata/" + path + ".json"))
+    sql = readfile("data/testvalidate/sql/nosimple_" + path + ".sql")
+    importer = SQLThemAll(simple=False, no_write=True)
+    importer.create_schema(jsonobj)
+    assert importer.get_sql().strip() == sql
+
+
+@pytest.mark.parametrize("path", paths)
+def test_render_dot(path):
+    """
+    Tests the correcness of the generated db schema.
+
+    Attributes:
+        path (str): Path of a JSON file to create the schema from.
+    """
+    jsonobj = json.loads(readfile("data/testdata/" + path + ".json"))
+    dot = readfile("data/testvalidate/dot/nosimple_" + path + ".dot")
+    importer = SQLThemAll(simple=False, no_write=True)
+    importer.create_schema(jsonobj)
+    assert importer.render_dot().strip() == dot
 
 
 @pytest.mark.parametrize("path", paths)
@@ -53,10 +83,40 @@ def test_schema_generation_simple(path):
         path (str): Path of a JSON file to create the schema from.
     """
     jsonobj = json.loads(readfile("data/testdata/" + path + ".json"))
-    schema = readfile("data/testvalidate/" + path + ".simple_schema")
-    importer = SQLThemAll(simple=True)
+    schema = readfile("data/testvalidate/json/simple_" + path + ".json")
+    importer = SQLThemAll(simple=True, no_write=True)
     importer.create_schema(jsonobj)
-    assert str(importer.metadata.sorted_tables) == schema
+    assert json.dumps(importer.describe_schema(), indent=4).strip() == schema
+
+
+@pytest.mark.parametrize("path", paths)
+def test_get_sql_simple(path):
+    """
+    Tests the correcness of the generated db schema (with simple db schema).
+
+    Attributes:
+        path (str): Path of a JSON file to create the schema from.
+    """
+    jsonobj = json.loads(readfile("data/testdata/" + path + ".json"))
+    sql = readfile("data/testvalidate/sql/simple_" + path + ".sql")
+    importer = SQLThemAll(simple=True, no_write=True)
+    importer.create_schema(jsonobj)
+    assert importer.get_sql().strip() == sql
+
+
+@pytest.mark.parametrize("path", paths)
+def test_render_dot_simple(path):
+    """
+    Tests the correcness of the generated db schema (with simple db schema).
+
+    Attributes:
+        path (str): Path of a JSON file to create the schema from.
+    """
+    jsonobj = json.loads(readfile("data/testdata/" + path + ".json"))
+    dot = readfile("data/testvalidate/dot/simple_" + path + ".dot")
+    importer = SQLThemAll(simple=True, no_write=True)
+    importer.create_schema(jsonobj)
+    assert importer.render_dot().strip() == dot
 
 
 objects = [

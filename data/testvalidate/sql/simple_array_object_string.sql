@@ -1,0 +1,9 @@
+
+CREATE TABLE main (
+	_id INTEGER NOT NULL, 
+	a VARCHAR, 
+	b VARCHAR, 
+	c VARCHAR, 
+	PRIMARY KEY (_id)
+)
+

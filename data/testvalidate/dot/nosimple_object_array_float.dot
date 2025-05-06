@@ -1,0 +1,98 @@
+digraph G {
+    label = "";
+    rankdir = "LR";
+    fontname = "Bitstream Vera Sans"
+    fontsize = 8
+
+    node [
+        fontname = "Bitstream Vera Sans"
+        fontsize = 8
+        shape = "plaintext"
+    ]
+
+    edge [
+        fontname = "Bitstream Vera Sans"
+        fontsize = 8
+    ]
+
+
+  
+  "a" [label=< 
+  <!-- table -->
+  <TABLE BGCOLOR="lightyellow" BORDER="0" CELLBORDER="0" CELLSPACING="0">
+    <TR>
+      <TD COLSPAN="2" CELLPADDING="4" ALIGN="CENTER" BGCOLOR="palegoldenrod">
+        <FONT FACE="Helvetica Bold" COLOR="black">a</FONT>
+      </TD>
+    </TR>
+    <TR>
+      <TD ALIGN="LEFT" BORDER="0">
+        <FONT FACE="Bitstream Vera Sans">★ _id</FONT>
+      </TD>
+      <TD ALIGN="LEFT">
+        <FONT FACE="Bitstream Vera Sans">INTEGER</FONT>
+      </TD>
+    </TR>
+    <TR>
+      <TD ALIGN="LEFT" BORDER="0">
+        <FONT FACE="Bitstream Vera Sans">⚪ val</FONT>
+      </TD>
+      <TD ALIGN="LEFT">
+        <FONT FACE="Bitstream Vera Sans">FLOAT</FONT>
+      </TD>
+    </TR>
+  </TABLE>
+  >]
+
+  
+  "main" [label=< 
+  <!-- table -->
+  <TABLE BGCOLOR="lightyellow" BORDER="0" CELLBORDER="0" CELLSPACING="0">
+    <TR>
+      <TD COLSPAN="2" CELLPADDING="4" ALIGN="CENTER" BGCOLOR="palegoldenrod">
+        <FONT FACE="Helvetica Bold" COLOR="black">main</FONT>
+      </TD>
+    </TR>
+    <TR>
+      <TD ALIGN="LEFT" BORDER="0">
+        <FONT FACE="Bitstream Vera Sans">★ _id</FONT>
+      </TD>
+      <TD ALIGN="LEFT">
+        <FONT FACE="Bitstream Vera Sans">INTEGER</FONT>
+      </TD>
+    </TR>
+  </TABLE>
+  >]
+
+  
+  "bridge_main_a" [label=< 
+  <!-- table -->
+  <TABLE BGCOLOR="lightyellow" BORDER="0" CELLBORDER="0" CELLSPACING="0">
+    <TR>
+      <TD COLSPAN="2" CELLPADDING="4" ALIGN="CENTER" BGCOLOR="palegoldenrod">
+        <FONT FACE="Helvetica Bold" COLOR="black">bridge_main_a</FONT>
+      </TD>
+    </TR>
+    <TR>
+      <TD ALIGN="LEFT" BORDER="0">
+        <FONT FACE="Bitstream Vera Sans">☆ a_id</FONT>
+      </TD>
+      <TD ALIGN="LEFT">
+        <FONT FACE="Bitstream Vera Sans">INTEGER</FONT>
+      </TD>
+    </TR>
+    <TR>
+      <TD ALIGN="LEFT" BORDER="0">
+        <FONT FACE="Bitstream Vera Sans">☆ main_id</FONT>
+      </TD>
+      <TD ALIGN="LEFT">
+        <FONT FACE="Bitstream Vera Sans">INTEGER</FONT>
+      </TD>
+    </TR>
+  </TABLE>
+  >]
+
+  "bridge_main_a" -> "main" [label = "main_id"]
+  "bridge_main_a" -> "a" [label = "a_id"]
+
+}

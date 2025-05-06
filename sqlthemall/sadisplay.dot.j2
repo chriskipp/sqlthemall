@@ -1,0 +1,88 @@
+{% macro format_role(name, role) -%}
+  {%- if role == 'pk' -%}
+    ★
+  {%- elif role == 'fk' -%}
+    ☆
+  {%- else -%}
+    ⚪
+  {%- endif -%}
+  {{- " " -}}{{- name -}}
+{%- endmacro %}
+{%- set alias = format_role -%}
+
+{% macro column(type, name, role=none) %}
+    <TR>
+      <TD ALIGN="LEFT" BORDER="0">
+        <FONT FACE="Bitstream Vera Sans">
+          {{- format_role(name=name, role=role) -}}
+        </FONT>
+      </TD>
+      <TD ALIGN="LEFT">
+        <FONT FACE="Bitstream Vera Sans">
+          {{- type -}}
+        </FONT>
+      </TD>
+    </TR>
+{%- endmacro -%}
+{%- set alias = column -%}
+
+{%- macro table(name, cols, props='', methods='', bgcolor='lightyellow') %}
+  <!-- table -->
+  <TABLE BGCOLOR="{{ bgcolor }}" BORDER="0" CELLBORDER="0" CELLSPACING="0">
+    <TR>
+      <TD COLSPAN="2" CELLPADDING="4" ALIGN="CENTER" BGCOLOR="palegoldenrod">
+        <FONT FACE="Helvetica Bold" COLOR="black">{{- name -}}
+        </FONT>
+      </TD>
+    </TR>
+    {%- for col in cols -%}
+      {{- column(type=col[0], name=col[1], role=col[2]) }}
+    {%- endfor %}
+  </TABLE>
+{%- endmacro %}
+{%- set alias = table-%}
+
+
+{%- macro dbtable(tbl, props='', methods='', bgcolor='lightyellow') %}
+  "{{ tbl['name'] }}" [label=< {{ table(name=tbl['name'], cols=tbl['cols'], props=tbl['props'], methods=tbl['methods'], bgcolor=bgcolor ) }}
+  >]
+{%- endmacro %}
+{%- set alias = dbtable-%}
+
+
+{%- macro fkey(fk) %}
+  "{{ fk.from }}" -> "{{ fk.to }}" [label = "{{ fk.by }}"]
+{%- endmacro %}
+{%- set alias = fkey %}
+
+
+{%- macro digraph(tables=[], fkeys=[]) -%}
+digraph G {
+    label = "";
+    rankdir = "LR";
+    fontname = "Bitstream Vera Sans"
+    fontsize = 8
+
+    node [
+        fontname = "Bitstream Vera Sans"
+        fontsize = 8
+        shape = "plaintext"
+    ]
+
+    edge [
+        fontname = "Bitstream Vera Sans"
+        fontsize = 8
+    ]
+
+{% for table in tables %}
+  {{ dbtable(tbl=table, bgcolor=opts["bgcolor"]) }}
+{% endfor -%}
+
+{% for fk in fkeys %}
+  {{- fkey(fk) -}}
+{% endfor %}
+
+}
+{%- endmacro %}
+{%- set alias = digraph -%}
+{{- digraph(schema['tables'], schema['fkeys']) -}}
