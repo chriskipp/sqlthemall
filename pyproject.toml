@@ -4,6 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.package-dir]
 sqlthemall = "sqlthemall"
+
 [tool.setuptools.package-data]
 "*" = [
   "*.j2"
@@ -38,9 +39,7 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12"
 ]
-
 requires-python = ">=3.10"
-  
 dependencies = [
   "alembic>=1.15.2",
   "SQLAlchemy>=2.0.40",
@@ -48,34 +47,32 @@ dependencies = [
   "jinja2>=3.1.6"
 ]
 
-
 [project.optional-dependencies]
 linting = [
-  "autoflake>=2.1.1",
-  "black>=22.10.0",
-  "flake8>=6.0.0",
+  "autoflake>=2.3.1",
+  "black>=25.1.0",
+  "flake8>=7.2.0",
   "flake8-awesome>=1.3.0",
-  "isort>=5.10.1",
+  "isort>=6.0.1",
   "pyfmt-svtter>=0.1.0",
-  "pylint>=2.15.5",
-  "bandit>=1.7.5",
+  "pylint>=3.3.7",
+  "bandit>=1.8.3",
   "pydocstringformatter>=0.7.3"
 ]
 testing = [
-  "pytest>=7.2.0",
-  "pytest-cov>=4.0.0",
+  "pytest>=8.3.5",
+  "pytest-cov>=6.1.1",
   "tox>=4.25.0"
 ]
 typing = [
-  "mypy-extensions>=1.0.0",
-  "mypy>=1.10.0",
-  "types-pyyaml>=6.0.12.20240311",
-  "types-ujson>=5.10.0.20240515",
-  "typing-extensions>=4.12.1"
+  "mypy-extensions>=1.1.0",
+  "mypy>=1.15.0",
+  "types-pyyaml>=6.0.12.20250402",
+  "types-ujson>=5.10.0.20250326",
+  "typing-extensions>=4.13.2"
 ]
 
 [project.scripts]
 sqlthemall = "sqlthemall.main:main"
-
 
 

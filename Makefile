@@ -9,8 +9,8 @@ VENV_PYTHON    = $(VENV)/bin/python
 SYSTEM_PYTHON  = $(or $(shell which python3), $(shell which python))
 # If virtualenv exists, use it. If not, find python using PATH
 PYTHON         = $(or $(wildcard $(VENV_PYTHON)), $(SYSTEM_PYTHON))
-MYPY           = $(or $(VENV)/bin/mypy, mypy)
 AUTOFLAKE      = $(or $(VENV)/bin/autoflake, autoflake)
+PYDOCSTRINGFORMATTER = $(or $(VENV)/bin/pydocstringformatter, pydocstringformatter)
 
 ## Dev/build environment
 
@@ -20,51 +20,48 @@ $(VENV_PYTHON):
 venv: $(VENV_PYTHON)
 
 deps: venv
-	$(PYTHON) -m pip install --upgrade pip
-	$(PYTHON) -m pip install --upgrade setuptools
-	$(PYTHON) -m pip install --upgrade wheel
-	$(PYTHON) -m pip install --upgrade build twine
-	$(PYTHON) -m pip install -r requirements.txt
+	$(PYTHON) -m pip install --upgrade pip setuptools wheel build twine
+
+install: deps
+	$(PYTHON) -m pip install .
+
+install-dev: install
 	# Dev dependencies
-	$(PYTHON) -m pip install -r requirements-dev.txt
+	$(PYTHON) -m pip install '.[testing,typing,linting]'
 
-.PHONY: venv deps
+.PHONY: venv deps install install-dev
 
-
-black: deps
+black: install-dev
 	$(PYTHON) -m black --line-length 79 --safe $(SOURCEDIR)
 
-autoflake: deps
+autoflake: install-dev
 	$(AUTOFLAKE) -v -v --in-place --recursive --remove-all-unused-imports --ignore-init-module-imports $(SOURCEDIR)
 
-isort:
+isort: install-dev
 	$(PYTHON) -m isort $(SOURCEDIR)
 
-mypy: deps
-	$(MYPY) --install-types --non-interactive --ignore-missing-imports $(SOURCEDIR)
+mypy: install-dev
+	$(PYTHON) -m mypy --install-types --non-interactive --ignore-missing-imports $(SOURCEDIR)
 
-pdocstr:
-	pydocstringformatter --linewrap-full-docstring --write  --max-line-length 79 $(SOURCEDIR)
+pdocstr: install-dev
+	$(PYDOCSTRINGFORMATTER) --linewrap-full-docstring --write  --max-line-length 79 $(SOURCEDIR)
 
-flake: deps
+flake: install-dev
 	$(PYTHON) -m flake8 --statistics --show-source --ignore S310,G004 --requirements-file requirements.txt $(SOURCEDIR)
 
-pylint: deps
+pylint: install-dev
 	$(PYTHON) -m pylint --rcfile .pylintrc $(SOURCEDIR)
 
 autolint: black isort mypy pdocstr autoflake clean
 lint: flake pylint
 
-install: deps
-	$(PYTHON) -m pip install .
-
-test: install
+test: install-dev
 	$(PYTHON) -m pytest -vvv tests
 
-cov: install
+cov: install-dev
 	$(PYTHON) -m pytest -vvv --cov=sqlthemall --cov-report=html:coverage tests
 
-test-all: deps
+test-all: install-dev
 	$(PYTHON) -m tox
 
 #upload: test-all build-dist

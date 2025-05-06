@@ -267,7 +267,6 @@ def main() -> None:
     it = read_from_source(args=args)
 
     for o in it:
-        print(len(o))
         if args.sql is True:
             importer.create_schema(jsonobj=o, no_write=True)
         elif args.describe is True:
