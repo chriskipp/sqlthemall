@@ -19,7 +19,7 @@ $(VENV_PYTHON):
 
 venv: $(VENV_PYTHON)
 
-deps: #venv
+deps: venv
 	$(PYTHON) -m pip install --upgrade pip setuptools wheel build twine
 
 install: deps
