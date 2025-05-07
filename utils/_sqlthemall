@@ -1,0 +1,59 @@
+#compdef sqlthemall
+# ------------------------------------------------------------------------------
+# Copyright (c) 2025 Christopher Kipp
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#   * Redistributions of source code must retain the above copyright
+#     notice, this list of conditions and the following disclaimer.
+#   * Redistributions in binary form must reproduce the above copyright
+#     notice, this list of conditions and the following disclaimer in the
+#     documentation and/or other materials provided with the distribution.
+#   * Neither the name of the project nor the
+#     names of its contributors may be used to endorse or promote products
+#     derived from this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+# WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+# DISCLAIMED. IN NO EVENT SHALL ZSH-USERS BE LIABLE FOR ANY
+# DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+# ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+# SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+# ------------------------------------------------------------------------------
+# Description
+# -----------
+#
+#  Completion script for sqlthemall.
+#
+# ------------------------------------------------------------------------------
+# Authors
+# -------
+#
+#  * Christopher Kipp
+#
+# ------------------------------------------------------------------------------
+# Generated with zpycompletion v1.2
+
+_arguments \
+  "--describe[Returns a description of the generated schema as json]" \
+  "--dot[Returns a dot representation of the generated schema]" \
+  "--sql[Returns the generated schema as sql]" \
+  {-L,--loglevel}"[Set the log level]:loglevel:(ERROR WARNING INFO DEBUG)" \
+  {-N,--batch_size}"[Number of objects processed per commit in JSONline mode]:batch size" \
+  {-S,--sequential}"[Processes objects in JSONline mode in sequential order]" \
+  {-a,--autocommit}"[Opens database in autocommit mode]" \
+  {-d,--databaseurl}"[Database url to use]:dburl" \
+  {-e,--echo}"[Print SQL statements (engine.echo = True)]" \
+  {-f,--file}"[File to read JSON from (default: stdin)]:PATHS_FILE:_files -g '*.json'" \
+  {-h,--help}"[show help text]" \
+  {-l,--line}"[Uses JSONline instead of JSON]" \
+  {-n,--noimport}"[Only creates database schema, skips import]" \
+  {-p,--no_progress}"[Do not print progress while importing]" \
+  {-s,--simple}"[Creates a simple database schema (no mtm)]" \
+  {-t,--root-table}"[Name of the root table to import JSON.]:root table" \
+  {-u,--url}"[URL to read JSON from]:url"
