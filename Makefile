@@ -19,7 +19,7 @@ $(VENV_PYTHON):
 
 venv: $(VENV_PYTHON)
 
-deps: venv
+deps: #venv
 	$(PYTHON) -m pip install --upgrade pip setuptools wheel build twine
 
 install: deps
@@ -95,6 +95,9 @@ clean:
 	rm -f .pyre_configuration
 	rm -rf .pyre
 	rm -f test.sqlite
+	rm -f test.db
+	rm -f '*.dot'
+	rm -f '*.svg'
 
 update_req: deps
 	sed 's/[<>=].*/\\s/' requirements.txt requirements-dev.txt > _requirements.txt

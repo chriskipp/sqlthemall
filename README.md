@@ -59,29 +59,32 @@ The above command will download the JSON data returned by the API request. Besid
 The behaviour of `sqlthemall` can be further adjusted by several command line options. The Usage is:
 
 ```
-usage: sqlthemall [-h] -d DBURL [-u URL] [-f FILE] [-s] [-n] [-a] [-L {ERROR,WARNING,INFO,DEBUG}]
-                  [-p] [-e] [-t ROOT_TABLE] [-l] [-S] [-N BATCH_SIZE]
+usage: sqlthemall [-h] [-d DBURL] [-u URL | -f FILE [FILE ...]] [-s] [-n] [-a] [-L {ERROR,WARNING,INFO,DEBUG}] [-p] [-e]
+                  [-t ROOT_TABLE] [-l] [-S] [--sql] [--describe] [--dot] [-N BATCH_SIZE]
 
-optional arguments:
-  -h, --help            show this help message and exit
-  -d DBURL, --databaseurl DBURL
-                        Database url to use
-  -u URL, --url URL     URL to read JSON from
-  -f FILE, --file FILE  File to read JSON from (default: stdin)
-  -s, --simple          Creates a simple database schema (no mtm)
-  -n, --noimport        Only creates database schema, skips import
-  -a, --autocommit      Opens database in autocommit mode
+options:
+  -h, --help                      show this help message and exit
+  -d DBURL, --databaseurl DBURL   Database url to use
+  -u URL, --url URL               URL to read JSON from
+  -f FILE [FILE ...], --file FILE [FILE ...]
+                                  File to read JSON from (default: stdin)
+  -s, --simple                    Creates a simple database schema (no mtm)
+  -n, --noimport                  Only creates database schema, skips import
+  -a, --autocommit                Opens database in autocommit mode
   -L {ERROR,WARNING,INFO,DEBUG}, --loglevel {ERROR,WARNING,INFO,DEBUG}
-                        Set the log level
-  -p, --no_progress     Do not print progress while importing
-  -e, --echo            Print SQL statements (engine.echo = True)
+                                  Set the log level
+  -p, --no_progress               Do not print progress while importing
+  -e, --echo                      Print SQL statements (engine.echo = True)
   -t ROOT_TABLE, --root-table ROOT_TABLE
-                        Name of the table to import the outermost subobjects if JSON object is a
-                        array
-  -l, --line            Uses JSONline instead of JSON
-  -S, --sequential      Processes objects in JSONline mode in sequential order
+                                  Name of the root table to import JSON.
+  -l, --line                      Uses JSONline instead of JSON
+  -S, --sequential                Processes objects in JSONline mode in sequential order
+  --sql                           Returns the generated schema as sql
+  --describe                      Returns a description of the generated schema as json
+  --dot                           Returns a dot representation of the generated schema
   -N BATCH_SIZE, --batch_size BATCH_SIZE
-                        Number of objects processed per commit in sequential mode
+                                  Number of objects processed per commit in JSONline mode
+
 ```
 
 ## Usage Hints/Where to go from here?

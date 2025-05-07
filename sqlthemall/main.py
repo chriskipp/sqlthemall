@@ -49,6 +49,7 @@ def parse_json(jsonstr: str, line=None) -> Optional[Union[str, list]]:
 def read_json(
     source_descriptor: Union[TextIOWrapper, HTTPResponse],
     lines: bool = False,
+    sequential: bool = False,
     batch_size: int = 100,
 ) -> Iterator[Union[dict, list]]:
     """
@@ -62,7 +63,7 @@ def read_json(
     Returns:
         Iterator[dict|list]: Parsed JSON input.
     """
-    if lines is False:
+    if sequential is False:
         yield parse_json(source_descriptor.read())
     else:
         while True:
@@ -120,16 +121,16 @@ def read_from_source(
         if args.url:
             with urllib.request.urlopen(args.url[0], timeout=300) as res:
                 yield from read_json(
-                    res, lines=args.line, batch_size=args.batch_size[0]
+                    res, lines=args.line, sequential=args.sequential, batch_size=args.batch_size[0]
                 )
         elif args.file:
             with open(args.file[0]) as f:
                 yield from read_json(
-                    f, lines=args.line, batch_size=args.batch_size[0]
+                    f, lines=args.line, sequential=args.sequential, batch_size=args.batch_size[0]
                 )
         elif not sys.stdin.isatty():
             yield from read_json(
-                sys.stdin, lines=args.line, batch_size=args.batch_size[0]
+                sys.stdin, lines=args.line, sequential=args.sequential, batch_size=args.batch_size[0]
             )
     except URLError:
         traceback.print_exc()
