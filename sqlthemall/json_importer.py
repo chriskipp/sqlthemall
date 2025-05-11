@@ -3,22 +3,22 @@
 
 import datetime
 import logging
+import os
 import sys
 import traceback
 from collections.abc import Iterable
-from typing import Union, Optional
+from typing import Dict, Optional, Union
 
 from alembic.autogenerate import produce_migrations
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
-from alembic.operations.ops import ModifyTableOps, UpgradeOps
+from alembic.operations.ops import ModifyTableOps
+from jinja2 import Template
 from sqlalchemy import (Boolean, Column, Date, Engine, Float, ForeignKey,
                         Index, Integer, MetaData, String, Table, create_engine,
                         create_mock_engine)
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import Session
-from jinja2 import Template
-import os
 
 
 def convert_to_dicts(
@@ -326,23 +326,19 @@ class SQLThemAll:
                     self.schema_changed = True
                     if not simple:
                         if simple_reltype:
-                            tbl = self.create_many_to_one(
+                            return self.create_many_to_one(
                                 name=k, current_table=current_table
                             )
-                        else:
-                            tbl = self.create_many_to_many(
-                                name=k, current_table=current_table
-                            )
-                    else:
-                        if simple_reltype:
-                            tbl = self.create_one_to_one(
-                                name=k, current_table=current_table
-                            )
-                        else:
-                            tbl = self.create_one_to_many(
-                                name=k, current_table=current_table
-                            )
-                    return tbl
+                        return self.create_many_to_many(
+                            name=k, current_table=current_table
+                        )
+                    if simple_reltype:
+                        return self.create_one_to_one(
+                            name=k, current_table=current_table
+                        )
+                    return self.create_one_to_many(
+                        name=k, current_table=current_table
+                    )
                 return self.metadata.tables[k]
 
             col_types = {
@@ -388,7 +384,7 @@ class SQLThemAll:
             self.classes = self.base.classes
 
             if no_write is not True:
-               self.write_schema()
+                self.write_schema()
 
     def _reflect(self, engine: Optional[Engine] = None) -> MetaData:
         """
@@ -435,7 +431,7 @@ class SQLThemAll:
                     ) as batch_ops:
                         for table_elem in elem.ops:
                             batch_ops.invoke(table_elem)
-                elif hasattr(elem, 'ops'):
+                elif hasattr(elem, "ops"):
                     stack.extend(elem.ops)
                 else:
                     operations.invoke(elem)
@@ -459,9 +455,7 @@ class SQLThemAll:
             jsonobj (dict): Object to parse.
         """
 
-        def make_relational_obj(
-            name, objc, session: Session, skip_empty: bool = True
-        ):
+        def make_relational_obj(name, objc, session: Session):
             """
             Generates a relational object which is insertable from.
 
@@ -471,7 +465,6 @@ class SQLThemAll:
                 name (str): Name of the table that will represent the object.
                 objc (dict): Object to parse.
                 session (Session): Session to use.
-                skip_empty (bool): Skipts objects without any information.
 
             Returns:
                 ormobject: Object defined by the object relational model.
@@ -481,9 +474,6 @@ class SQLThemAll:
             pre_ormobjc, collectiondict = {}, {}
             for k, val in objc.items():
                 if val is None or val == [] or val == {}:
-                    if skip_empty is True:
-                        continue
-                if val is None:
                     continue
                 if isinstance(val, dict):
                     collectiondict[k] = [
@@ -582,18 +572,29 @@ class SQLThemAll:
         self.create_schema(jsonobj, no_write=False)
         self.insert_data_to_schema(jsonobj)
 
-    def get_sql(self, engine=None, checkfirst=True):
+    def get_sql(self, engine=None):
+        """
+        Retruns the generated schema as sql statements.
+
+        Args:
+            engine (Engine): Engine to use.
+        """
+
         def dump(sql, *multiparams, **params):
-            self.sql += sql.compile(dialect=engine.dialect).string.strip() + ';\n'
+            self.sql += (
+                sql.compile(dialect=engine.dialect).string.strip() + ";\n"
+            )
 
         if engine is None:
             engine = self.engine
         mock_engine = create_mock_engine(f"{engine.url.drivername}://", dump)
         self.sql = ""
-        self.metadata.create_all(bind=mock_engine, checkfirst=checkfirst)
+        self.metadata.create_all(bind=mock_engine)
         return self.sql
 
-    def describe_schema(self, metadata: Optional[MetaData] = None) -> str:
+    def describe_schema(
+        self, metadata: Optional[MetaData] = None
+    ) -> Dict[str, Dict[str, list]]:
         """
         Describes the provided metadata.
 
@@ -602,6 +603,9 @@ class SQLThemAll:
 
         Args:
             metadata (MetaData): MetaData to describe.
+
+        Returns:
+            schema (dict): Schema description.
         """
 
         def describe_table(table):
@@ -623,11 +627,7 @@ class SQLThemAll:
 
             def get_columns(table):
                 def column_type(column):
-                    try:
-                        return str(column.type)
-                    except Exception:
-                        # https://bitbucket.org/estin/sadisplay/issues/17/cannot-render-json-column-type
-                        return type(column.type).__name__.upper()
+                    return str(column.type)
 
                 def column_role(column):
                     if column.primary_key:
@@ -650,7 +650,7 @@ class SQLThemAll:
                         (column_type(col), col.name, column_role(col))
                     )
 
-                return sorted(columns, key=lambda c: column_compare(c))
+                return sorted(columns, key=column_compare)
 
             def get_columns_of_index(index):
                 return [c.name for c in index.columns if isinstance(c, Column)]
@@ -691,12 +691,13 @@ class SQLThemAll:
 
         return {"schema": {"tables": tables, "fkeys": fkeys}}
 
-    def render_dot(self, opts={}) -> str:
+    def render_dot(self) -> str:
         """
         Renders current MetaData as dot.
 
         """
-        with open(os.path.dirname(__file__) + '/sadisplay.dot.j2') as f:
+        with open(os.path.dirname(__file__) + "/sadisplay.dot.j2") as f:
             t = Template(f.read())
-        return t.render(self.describe_schema(), opts={"bgcolor": "lightyellow"})
-
+        return t.render(
+            self.describe_schema(), opts={"bgcolor": "lightyellow"}
+        )

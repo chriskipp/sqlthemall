@@ -121,16 +121,25 @@ def read_from_source(
         if args.url:
             with urllib.request.urlopen(args.url[0], timeout=300) as res:
                 yield from read_json(
-                    res, lines=args.line, sequential=args.sequential, batch_size=args.batch_size[0]
+                    res,
+                    lines=args.line,
+                    sequential=args.sequential,
+                    batch_size=args.batch_size[0],
                 )
         elif args.file:
             with open(args.file[0]) as f:
                 yield from read_json(
-                    f, lines=args.line, sequential=args.sequential, batch_size=args.batch_size[0]
+                    f,
+                    lines=args.line,
+                    sequential=args.sequential,
+                    batch_size=args.batch_size[0],
                 )
         elif not sys.stdin.isatty():
             yield from read_json(
-                sys.stdin, lines=args.line, sequential=args.sequential, batch_size=args.batch_size[0]
+                sys.stdin,
+                lines=args.line,
+                sequential=args.sequential,
+                batch_size=args.batch_size[0],
             )
     except URLError:
         traceback.print_exc()
@@ -285,13 +294,9 @@ def main() -> None:
     if args.sql is True:
         sys.stdout.write(importer.get_sql())
     elif args.describe is True:
-        sys.stdout.write(
-            json.dumps(importer.describe_schema(), indent=4)
-        )
+        sys.stdout.write(json.dumps(importer.describe_schema(), indent=4))
     elif args.dot is True:
-        sys.stdout.write(
-            importer.render_dot() + '\n'
-        )
+        sys.stdout.write(importer.render_dot() + "\n")
 
 
 if __name__ == "__main__":

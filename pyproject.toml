@@ -74,5 +74,3 @@ typing = [
 
 [project.scripts]
 sqlthemall = "sqlthemall.main:main"
-
-
