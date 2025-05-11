@@ -584,7 +584,7 @@ class SQLThemAll:
 
     def get_sql(self, engine=None, checkfirst=True):
         def dump(sql, *multiparams, **params):
-            self.sql += sql.compile(dialect=engine.dialect).string
+            self.sql += sql.compile(dialect=engine.dialect).string.strip() + ';\n'
 
         if engine is None:
             engine = self.engine

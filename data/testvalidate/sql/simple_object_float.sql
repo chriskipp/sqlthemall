@@ -1,4 +1,3 @@
-
 CREATE TABLE main (
 	_id INTEGER NOT NULL, 
 	a FLOAT, 
@@ -6,5 +5,4 @@ CREATE TABLE main (
 	c FLOAT, 
 	d FLOAT, 
 	PRIMARY KEY (_id)
-)
-
+);

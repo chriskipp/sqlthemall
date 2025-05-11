@@ -1,6 +1,4 @@
-
 CREATE TABLE main (
 	_id INTEGER NOT NULL, 
 	PRIMARY KEY (_id)
-)
-
+);

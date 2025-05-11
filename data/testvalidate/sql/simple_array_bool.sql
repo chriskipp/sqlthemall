@@ -1,7 +1,5 @@
-
 CREATE TABLE main (
 	_id INTEGER NOT NULL, 
 	val BOOLEAN, 
 	PRIMARY KEY (_id)
-)
-
+);
